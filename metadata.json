@@ -1,0 +1,6 @@
+{
+  "name": "Cadastro de Clientes SEFAZ Live",
+  "description": "Sistema de cadastro de clientes moderno com consultas automáticas de CNPJ (Receita Federal/SEFAZ) e CEP (ViaCEP). Inclui exportador e código-fonte completo em PHP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
