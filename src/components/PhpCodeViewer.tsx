@@ -2,8 +2,132 @@ import React, { useState } from 'react';
 import { Copy, Check, FileCode, Database, Terminal } from 'lucide-react';
 
 export default function PhpCodeViewer() {
-  const [copiedTab, setCopiedTab] = useState<'php' | 'sql' | null>(null);
-  const [activeFile, setActiveFile] = useState<'php' | 'sql'>('php');
+  const [copiedTab, setCopiedTab] = useState<'php' | 'vendas' | 'sql' | null>(null);
+  const [activeFile, setActiveFile] = useState<'php' | 'vendas' | 'sql'>('php');
+
+  const vendasPhpCode = `<?php
+/**
+ * SISTEMA DE VENDAS E ORÇAMENTOS - PHP + MYSQL (USICORTE)
+ * 
+ * Módulo completo com seleção de cliente, cálculo de constantes, 
+ * medidas metalúrgicas, lançamento de itens e cálculo de subtotais e totais.
+ */
+
+$db_host = 'localhost';
+$db_name = 'cadastro_clientes';
+$db_user = 'root';
+$db_pass = '';
+
+try {
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Erro ao conectar ao banco de dados: " . $e->getMessage());
+}
+
+// Salvar Orçamento Completo (Header + Itens)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'salvar_orcamento') {
+    $quote_number = $_POST['quote_number'] ?? 'COT-' . date('Y') . '-' . rand(1000, 9999);
+    $client_name = $_POST['client_name'] ?? 'Cliente Balcão';
+    $client_doc = $_POST['client_doc'] ?? '';
+    $contact = $_POST['contact'] ?? '';
+    $quote_date = $_POST['quote_date'] ?? date('Y-m-d');
+    $validity_days = (int)($_POST['validity_days'] ?? 10);
+    $payment_terms = $_POST['payment_terms'] ?? 'À Vista';
+    $discount = (float)($_POST['discount'] ?? 0);
+    $shipping = (float)($_POST['shipping'] ?? 0);
+    $subtotal_total = (float)($_POST['subtotal_total'] ?? 0);
+    $grand_total = (float)($_POST['grand_total'] ?? 0);
+    $observations = $_POST['observations'] ?? '';
+    $items = json_decode($_POST['items_json'] ?? '[]', true);
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("INSERT INTO orcamentos 
+            (quote_number, client_name, client_document, contact_person, quote_date, validity_days, payment_terms, discount, shipping, subtotal_total, grand_total, observations) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$quote_number, $client_name, $client_doc, $contact, $quote_date, $validity_days, $payment_terms, $discount, $shipping, $subtotal_total, $grand_total, $observations]);
+        $orcamento_id = $pdo->lastInsertId();
+
+        $stmtItem = $pdo->prepare("INSERT INTO orcamento_itens 
+            (orcamento_id, description, constant, measure, diameter, width_length, unit_price, quantity, subtotal, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        foreach ($items as $it) {
+            $stmtItem->execute([
+                $orcamento_id,
+                $it['description'] ?? '',
+                $it['constant'] ?? '1.0',
+                $it['measure'] ?? '',
+                $it['diameter'] ?? '',
+                $it['widthLength'] ?? '',
+                (float)($it['unitPrice'] ?? 0),
+                (float)($it['quantity'] ?? 1),
+                (float)($it['subtotal'] ?? 0),
+                $it['notes'] ?? ''
+            ]);
+        }
+
+        $pdo->commit();
+        $mensagem_sucesso = "Orçamento $quote_number gravado com sucesso!";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $mensagem_erro = "Erro ao salvar orçamento: " . $e->getMessage();
+    }
+}
+
+// Buscar clientes cadastrados para o dropdown
+$clientes = $pdo->query("SELECT id, name, fantasy_name, document, phone, email, city, state FROM clientes ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Buscar orçamentos salvos
+$orcamentos = $pdo->query("SELECT * FROM orcamentos ORDER BY id DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UsiCorte - Orçamentos e Vendas Industrial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-8 font-sans">
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Top Branding -->
+        <div class="bg-slate-900 text-white p-6 rounded-2xl flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-xl">UC</div>
+                <div>
+                    <h1 class="text-xl font-bold">UsiCorte • Módulo de Vendas e Orçamentos</h1>
+                    <p class="text-xs text-slate-400">Sistema em PHP + MySQL com Cálculo Automático de Medidas e Constantes</p>
+                </div>
+            </div>
+            <a href="cadastro.php" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all">
+                <i class="fas fa-users mr-1"></i> Ir para Cadastro de Clientes
+            </a>
+        </div>
+        
+        <!-- Formulário Dinâmico -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-700">1. Dados Gerais da Cotação</h2>
+            <!-- Dropdown Clientes -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold mb-1">Cliente Cadastrado</label>
+                    <select id="sel_cliente" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                        <option value="">-- Selecionar Cliente --</option>
+                        <?php foreach ($clientes as $c): ?>
+                            <option value="<?= $c['id'] ?>" data-doc="<?= htmlspecialchars($c['document']) ?>" data-phone="<?= htmlspecialchars($c['phone']) ?>">
+                                <?= htmlspecialchars($c['name']) ?> (<?= htmlspecialchars($c['document']) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
 
   const phpCode = `<?php
 /**
@@ -641,7 +765,7 @@ if (isset($pdo)) {
 CREATE DATABASE IF NOT EXISTS cadastro_clientes;
 USE cadastro_clientes;
 
--- Criar Tabela de Clientes
+-- 1. Criar Tabela de Clientes
 CREATE TABLE IF NOT EXISTS clientes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     type VARCHAR(10) NOT NULL,              -- CNPJ ou CPF
@@ -662,6 +786,52 @@ CREATE TABLE IF NOT EXISTS clientes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 2. Criar Tabela de Orçamentos / Vendas (UsiCorte)
+CREATE TABLE IF NOT EXISTS orcamentos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    quote_number VARCHAR(50) NOT NULL UNIQUE,
+    client_id INT NULL,
+    client_name VARCHAR(150) NOT NULL,
+    client_document VARCHAR(25) NULL,
+    contact_person VARCHAR(100) NULL,
+    quote_date DATE NOT NULL,
+    validity_days INT DEFAULT 10,
+    payment_terms VARCHAR(100) DEFAULT 'À Vista',
+    status VARCHAR(30) DEFAULT 'Rascunho',
+    discount DECIMAL(10,2) DEFAULT 0.00,
+    shipping DECIMAL(10,2) DEFAULT 0.00,
+    subtotal_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    grand_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    observations TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clientes(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Criar Tabela de Itens do Orçamento
+CREATE TABLE IF NOT EXISTS orcamento_itens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    orcamento_id INT NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    constant VARCHAR(30) DEFAULT '1.0',     -- Fator / Densidade
+    measure VARCHAR(50) NULL,              -- Espessura / Medida
+    diameter VARCHAR(50) NULL,             -- Diâmetro Ø
+    width_length VARCHAR(100) NULL,        -- Largura x Comprimento
+    unit_price DECIMAL(10,2) NOT NULL,     -- Valor Unitário
+    quantity DECIMAL(10,2) NOT NULL,       -- QTD
+    subtotal DECIMAL(10,2) NOT NULL,       -- Subtotal = Unit * Qty
+    notes VARCHAR(255) NULL,
+    FOREIGN KEY (orcamento_id) REFERENCES orcamentos(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Criar Tabela de Usuários / Funcionários
+CREATE TABLE IF NOT EXISTS usuarios (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL UNIQUE,
+    senha TEXT NOT NULL,
+    perfil VARCHAR(20) DEFAULT 'FUNCIONARIO', -- 'ADMIN' ou 'FUNCIONARIO'
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- Dados Fictícios de Exemplo para Teste Rápido
 INSERT INTO clientes (type, document, name, fantasy_name, cep, street, neighborhood, city, state, situation, phone, email, enabled, registration_date) 
 VALUES 
@@ -669,10 +839,18 @@ VALUES
 ('CPF', '111.222.333-44', 'Oziel Medrade de Souza', '', '01001-000', 'Praça da Sé', 'Sé', 'São Paulo', 'SP', 'ATIVA', '(11) 98888-7777', 'medradeoziel@gmail.com', 1, '2026-07-20');
 `;
 
-  const copyToClipboard = (text: string, type: 'php' | 'sql') => {
+  const copyToClipboard = (text: string, type: 'php' | 'vendas' | 'sql') => {
     navigator.clipboard.writeText(text);
     setCopiedTab(type);
     setTimeout(() => setCopiedTab(null), 2000);
+  };
+
+  const getActiveCode = () => {
+    switch (activeFile) {
+      case 'php': return phpCode;
+      case 'vendas': return vendasPhpCode;
+      case 'sql': return sqlCode;
+    }
   };
 
   return (
@@ -683,15 +861,15 @@ VALUES
             <Terminal className="w-5 h-5 text-indigo-400" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-200 text-sm">Código Fonte para seu Servidor PHP</h3>
-            <p className="text-xs text-slate-400">Implementação completa autossuficiente e pronta para rodar.</p>
+            <h3 className="font-bold text-slate-200 text-sm">Código Fonte para seu Servidor PHP / MySQL</h3>
+            <p className="text-xs text-slate-400">Implementação completa autossuficiente e pronta para rodar no XAMPP / Apache.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveFile('php')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               activeFile === 'php' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
@@ -699,8 +877,17 @@ VALUES
             cadastro.php
           </button>
           <button
+            onClick={() => setActiveFile('vendas')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeFile === 'vendas' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            vendas_orcamentos.php
+          </button>
+          <button
             onClick={() => setActiveFile('sql')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               activeFile === 'sql' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
@@ -715,21 +902,20 @@ VALUES
         <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-xs leading-relaxed text-slate-300">
           <p className="font-bold text-slate-200 mb-1.5 flex items-center gap-1.5">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
-            Como Executar no seu Computador (XAMPP / WampServer / Docker)
+            Como Executar no seu Computador (XAMPP / WampServer / Docker / Apache)
           </p>
           <ol className="list-decimal pl-4 space-y-1 text-slate-400">
-            <li>Abra o painel do seu <b>MySQL (PhpMyAdmin)</b> e execute o script da aba <span className="text-indigo-400 font-semibold font-mono">schema.sql</span> para criar a tabela.</li>
-            <li>Crie um arquivo chamado <span className="text-indigo-400 font-semibold font-mono">cadastro.php</span> na sua pasta de servidor local (ex: <code className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded">htdocs/</code>).</li>
-            <li>Copie e cole o código abaixo dentro deste arquivo e ajuste as credenciais do banco na linha 9 se necessário.</li>
-            <li>Abra no seu navegador: <code className="bg-indigo-950/60 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-semibold">http://localhost/cadastro.php</code></li>
+            <li>Abra o painel do seu <b>MySQL (PhpMyAdmin)</b> e execute o script da aba <span className="text-indigo-400 font-semibold font-mono">schema.sql</span> para criar as tabelas (<code className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded">clientes</code>, <code className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded">orcamentos</code> e <code className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded">orcamento_itens</code>).</li>
+            <li>Copie os arquivos <span className="text-indigo-400 font-semibold font-mono">cadastro.php</span> e <span className="text-indigo-400 font-semibold font-mono">vendas_orcamentos.php</span> para sua pasta do servidor local (ex: <code className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded">htdocs/</code>).</li>
+            <li>Abra no seu navegador: <code className="bg-indigo-950/60 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-semibold">http://localhost/cadastro.php</code> ou <code className="bg-indigo-950/60 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-semibold">http://localhost/vendas_orcamentos.php</code></li>
           </ol>
         </div>
 
         {/* Code display area */}
         <div className="relative group">
           <button
-            onClick={() => copyToClipboard(activeFile === 'php' ? phpCode : sqlCode, activeFile)}
-            className="absolute right-4 top-4 px-3 py-1.5 bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md border border-slate-700/50 hover:border-indigo-500"
+            onClick={() => copyToClipboard(getActiveCode(), activeFile)}
+            className="absolute right-4 top-4 px-3 py-1.5 bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md border border-slate-700/50 hover:border-indigo-500 cursor-pointer"
           >
             {copiedTab === activeFile ? (
               <>
@@ -745,7 +931,7 @@ VALUES
           </button>
 
           <pre className="p-4 bg-slate-950 rounded-xl overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[420px] border border-slate-800/50 text-slate-300 select-all">
-            {activeFile === 'php' ? phpCode : sqlCode}
+            {getActiveCode()}
           </pre>
         </div>
       </div>
