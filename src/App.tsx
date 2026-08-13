@@ -1,311 +1,303 @@
-import React, { useState, useEffect } from 'react';
-import { Client } from './types';
-import ClientForm from './components/ClientForm';
-import ClientList from './components/ClientList';
-import PhpCodeViewer from './components/PhpCodeViewer';
-import { 
-  Building2, 
-  Users, 
-  UserCheck, 
-  Zap, 
-  Sparkles, 
-  ArrowUpRight, 
-  Globe2, 
-  FileCode,
-  CheckCircle2,
-  Info
-} from 'lucide-react';
+import React, { useState } from 'react';
+
+const tabelaConstantes = [
+  { nome: "BRONZE TM 620", k: 0.0072, precoKg: 200, tipo: "macico" },
+  { nome: "BRONZE TM 23", k: 0.0072, precoKg: 150, tipo: "macico" },
+  { nome: "NYLON REDONDO", k: 0.00094, precoKg: 90, tipo: "macico" },
+  { nome: "ALUMINIO REDONDO", k: 0.00214, precoKg: 75, tipo: "macico" },
+  { nome: "FFNODULAR REDONDO", k: 0.00567, precoKg: 26, tipo: "macico" },
+  { nome: "AÇO VC REDONDO", k: 0.00617, precoKg: 80, tipo: "macico" },
+  { nome: "SEXTAVADO AÇO", k: 0.0068, precoKg: 35, tipo: "macico" },
+  { nome: "SEXTAVADO LATÃO", k: 0.00791, precoKg: 115, tipo: "macico" },
+  { nome: "RETALHO", k: 0, precoKg: 15, tipo: "chapa" },
+  { nome: "QUADRADO", k: 0.00785, precoKg: 35, tipo: "macico" },
+  { nome: "P.U REDONDO", k: 0.00094, precoKg: 205, tipo: "macico" },
+  { nome: "BUCHA REDONDO", k: 0.00617, precoKg: 45, tipo: "bucha" },
+  { nome: "BARRA CHATA", k: 0.00785, precoKg: 18, tipo: "chapa" },
+  { nome: "CHAVETA", k: 0.00785, precoKg: 205, tipo: "chapa" },
+  { nome: "QUADRADO ALUMINIO", k: 0.0027, precoKg: 75, tipo: "macico" },
+  { nome: "QUADRADO NYLON", k: 0.0013, precoKg: 100, tipo: "macico" },
+  { nome: "LATAO REDONDO", k: 0.0069, precoKg: 115, tipo: "macico" },
+  { nome: "POLIURETANO REDONDO", k: 0.0009, precoKg: 205, tipo: "macico" },
+  { nome: "CHAPA ASTM A36", k: 0.00785, precoKg: 22, tipo: "chapa" },
+  { nome: "LASER CHAPA ASTM A36", k: 0.00785, precoKg: 22, tipo: "chapa" },
+  { nome: "SEXTAVADO INOX", k: 0.00617, precoKg: 75, tipo: "macico" },
+  { nome: "PAGAMENTO", k: 0, precoKg: 0, tipo: "chapa" },
+  { nome: "MÃO DE OBRA", k: 0, precoKg: 0, tipo: "chapa" },
+  { nome: "AÇO REDONDO SAE 1045", k: 0.00617, precoKg: 22, tipo: "macico" },
+  { nome: "AÇO REDONDO SAE 4140", k: 0.00617, precoKg: 28, tipo: "macico" },
+  { nome: "AÇO REDONDO SAE 8620", k: 0.00617, precoKg: 28, tipo: "macico" },
+  { nome: "AÇO REDONDO SAE 4340", k: 0.00617, precoKg: 35, tipo: "macico" },
+  { nome: "AÇO REDONDO SAE 1020", k: 0.00617, precoKg: 22, tipo: "macico" }
+];
 
 export default function App() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [activeClient, setActiveClient] = useState<Client | null>(null);
-  const [viewCode, setViewCode] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  // Load clients from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('s_clientes');
-    if (saved) {
-      try {
-        setClients(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error loading saved clients');
+  const [matIndex, setMatIndex] = useState('');
+  const [diametro, setDiametro] = useState('');
+  const [espessura, setEspessura] = useState('');
+  const [largura, setLargura] = useState('');
+  const [comprimento, setComprimento] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [observacao, setObservacao] = useState('');
+  const [qtd, setQtd] = useState(1);
+  const [precoKg, setPrecoKg] = useState('');
+
+  const matSelecionado = matIndex !== '' ? tabelaConstantes[Number(matIndex)] : null;
+
+  const handleMaterialChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setMatIndex(val);
+    if (val === '') {
+      setPrecoKg('');
+      setDescricao('');
+      return;
+    }
+    const mat = tabelaConstantes[Number(val)];
+    setPrecoKg(String(Math.ceil(mat.precoKg)));
+    setDescricao(mat.nome);
+  };
+
+  const aplicarDimensao = (larg: number, comp: number) => {
+    setLargura(String(larg));
+    setComprimento(String(comp));
+  };
+
+  let pesoUnitario = 0;
+  if (matSelecionado) {
+    const dExt = parseFloat(diametro) || 0;
+    const dInt = parseFloat(espessura) || 0;
+    const esp = parseFloat(espessura) || 0;
+    const larg = parseFloat(largura) || 0;
+    const comp = parseFloat(comprimento) || 0;
+    const k = matSelecionado.k;
+
+    if (matSelecionado.tipo === 'chapa') {
+      pesoUnitario = (esp * larg * comp * k) / 1000;
+    } else if (matSelecionado.tipo === 'macico') {
+      const d = dExt || esp;
+      pesoUnitario = (d * d * comp * k) / 1000;
+    } else if (matSelecionado.tipo === 'bucha') {
+      if (dExt > dInt && dInt > 0) {
+        const pesoBruto = (dExt * dExt * comp * k) / 1000;
+        const pesoFuro = (dInt * dInt * comp * k) / 1000;
+        pesoUnitario = pesoBruto - pesoFuro;
+      } else {
+        pesoUnitario = (dExt * dExt * comp * k) / 1000;
       }
-    } else {
-      // Seed initial dummy clients for rich experience
-      const initialSeed: Client[] = [
-        {
-          id: 'seed-1',
-          type: 'CNPJ',
-          document: '12345678000190',
-          name: 'Brasil Tecnologias Ltda',
-          fantasyName: 'BR Tech',
-          cep: '01311200',
-          street: 'Avenida Paulista, 1000',
-          neighborhood: 'Bela Vista',
-          city: 'São Paulo',
-          state: 'SP',
-          situation: 'ATIVA',
-          contactPerson: 'Oziel Medrade',
-          phone: '11988887777',
-          email: 'medradeoziel@gmail.com',
-          enabled: true,
-          registrationDate: '2026-07-20'
-        },
-        {
-          id: 'seed-2',
-          type: 'CPF',
-          document: '11122233344',
-          name: 'Ana Maria Silva de Oliveira',
-          fantasyName: '',
-          cep: '20040002',
-          street: 'Avenida Rio Branco, 156',
-          neighborhood: 'Centro',
-          city: 'Rio de Janeiro',
-          state: 'RJ',
-          situation: 'ATIVA',
-          contactPerson: 'Filipe Silva',
-          phone: '21977776666',
-          email: 'ana.silva@gmail.com',
-          enabled: true,
-          registrationDate: '2026-07-21'
-        }
-      ];
-      setClients(initialSeed);
-      localStorage.setItem('s_clientes', JSON.stringify(initialSeed));
     }
-  }, []);
+  }
 
-  const saveClientsToStorage = (updatedList: Client[]) => {
-    setClients(updatedList);
-    localStorage.setItem('s_clientes', JSON.stringify(updatedList));
+  const pKg = parseFloat(precoKg) || 0;
+  const q = parseFloat(String(qtd)) || 1;
+
+  const valorUnitarioCalculado = pesoUnitario * pKg;
+  const valorUnitarioArredondado = Math.ceil(valorUnitarioCalculado);
+  const valorTotalCalculado = valorUnitarioArredondado * q;
+  const valorTotalArredondado = Math.ceil(valorTotalCalculado);
+  const pesoTotal = pesoUnitario * q;
+
+  const resetForm = () => {
+    setMatIndex('');
+    setDiametro('');
+    setEspessura('');
+    setLargura('');
+    setComprimento('');
+    setDescricao('');
+    setObservacao('');
+    setQtd(1);
+    setPrecoKg('');
   };
 
-  const handleSaveClient = (client: Client) => {
-    const exists = clients.some(c => c.id === client.id);
-    let updatedList: Client[];
-
-    if (exists) {
-      updatedList = clients.map(c => c.id === client.id ? client : c);
-    } else {
-      updatedList = [client, ...clients];
-    }
-
-    saveClientsToStorage(updatedList);
-    setActiveClient(null);
+  const copiarResumo = () => {
+    const desc = descricao || (matSelecionado ? matSelecionado.nome : '');
+    const pesoTxt = pesoTotal.toFixed(3).replace('.', ',') + ' KG';
+    const totalTxt = 'R$ ' + valorTotalArredondado.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const resumo = `[Usicorte] ${desc} | Qtd: ${qtd} | Peso: ${pesoTxt} | Total: ${totalTxt}${observacao ? ' | Obs: ' + observacao : ''}`;
+    navigator.clipboard.writeText(resumo);
+    alert('Resumo copiado!');
   };
-
-  const handleDeleteClient = (id: string) => {
-    const updatedList = clients.filter(c => c.id !== id);
-    saveClientsToStorage(updatedList);
-    setActiveClient(null);
-  };
-
-  const handleExportClients = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(clients, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "clientes_export.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  // Compute live stats for dashboard
-  const totalCnpjs = clients.filter(c => c.type === 'CNPJ').length;
-  const totalCpfs = clients.filter(c => c.type === 'CPF').length;
-  const totalEnabled = clients.filter(c => c.enabled).length;
 
   return (
-    <div id="app-root" className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900 pb-12">
-      
-      {/* Decorative top strip */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+    <div className="bg-[#030712] text-white min-h-screen flex flex-col font-sans">
+      <header className="h-14 bg-[#090d16] border-b border-gray-800 flex items-center justify-between px-4 z-20 sticky top-0">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden text-gray-300 hover:text-white text-xl p-1">
+            ☰
+          </button>
+          <span className="text-xs bg-red-950/80 border border-red-800 text-red-400 font-bold px-2 py-0.5 rounded">ERP</span>
+          <h1 className="font-extrabold tracking-wide text-base md:text-lg">Metais</h1>
+        </div>
 
-      {/* Global Header */}
-      <header className="bg-slate-900 text-white py-8 px-4 border-b border-indigo-950/40 relative overflow-hidden shrink-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(99,102,241,0.18),rgba(255,255,255,0))]"></div>
-        
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 backdrop-blur-xs">
-              <Building2 className="w-8 h-8 text-indigo-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">CADASTRO DE CLIENTES</h1>
-                <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  API Live
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1 max-w-md">
-                Preencha os dados de Pessoa Jurídica ou Física com consultas automatizadas integradas ao <b>SEFAZ, Receita Federal</b> e <b>ViaCEP</b>.
-              </p>
-            </div>
-          </div>
+        <div className="hidden md:flex items-center gap-1">
+          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📦 Produtos</button>
+          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">👥 Clientes</button>
+          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📋 Lançamento</button>
+          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">🛒 Vendas</button>
+          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📊 Relatórios</button>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Toggle view mode */}
-            <button
-              onClick={() => setViewCode(!viewCode)}
-              className={`px-4.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm border ${
-                viewCode 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' 
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700/80'
-              }`}
-            >
-              <FileCode className="w-4 h-4" />
-              {viewCode ? 'Voltar para Cadastro' : 'Ver Código-Fonte PHP'}
-              <ArrowUpRight className="w-3 h-3 opacity-60" />
-            </button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
+          <div className="text-left hidden sm:block">
+            <p className="text-xs font-bold leading-none">ADMINISTRADOR</p>
+            <p className="text-[10px] text-gray-400 leading-tight">Administrador</p>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 mt-8 flex-1 w-full space-y-8">
-        
-        {/* Quick Dashboard Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <div className="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xs flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total de Cadastros</span>
-              <span className="text-2xl font-extrabold text-slate-800 block font-mono">{clients.length}</span>
-            </div>
-            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100/50">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xs flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pessoas Jurídicas</span>
-              <span className="text-2xl font-extrabold text-slate-800 block font-mono">{totalCnpjs}</span>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600 border border-blue-100/50">
-              <Building2 className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xs flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pessoas Físicas</span>
-              <span className="text-2xl font-extrabold text-slate-800 block font-mono">{totalCpfs}</span>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-xl text-purple-600 border border-purple-100/50">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xs flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Habilitados / Ativos</span>
-              <span className="text-2xl font-extrabold text-slate-800 block font-mono">
-                {totalEnabled} <span className="text-xs text-emerald-500 font-bold ml-1">({clients.length > 0 ? Math.round((totalEnabled / clients.length) * 100) : 0}%)</span>
-              </span>
-            </div>
-            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-100/50">
-              <UserCheck className="w-5 h-5" />
-            </div>
-          </div>
-
-        </div>
-
-        {/* Dynamic Panel Switcher */}
-        {viewCode ? (
-          /* PHP SOURCE CODE DISPLAY MODE */
-          <div className="space-y-6">
-            <div className="bg-indigo-950 text-white rounded-2xl p-6 shadow-sm border border-indigo-900/40 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center gap-4 justify-between">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
-              <div className="space-y-1.5 relative z-10">
-                <h2 className="text-base font-bold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  Pronto para Produção em PHP!
-                </h2>
-                <p className="text-xs text-indigo-200/80 max-w-2xl leading-relaxed">
-                  Criamos um arquivo de PHP autossuficiente integrado ao seu banco de dados local. Você terá o mesmo formulário moderno com todas as consultas automáticas de API e interface baseada no Tailwind CSS do seu servidor Apache, Nginx ou XAMPP.
-                </p>
-              </div>
-              <button 
-                onClick={() => setViewCode(false)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all relative z-10 shrink-0"
-              >
-                Voltar para o App Interativo
-              </button>
-            </div>
-
-            <PhpCodeViewer />
-          </div>
-        ) : (
-          /* INTERACTIVE APP MODE (FORM + LIST) */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* Form Section */}
-            <div className="lg:col-span-8 h-full">
-              <ClientForm 
-                activeClient={activeClient}
-                onSave={handleSaveClient}
-                onDelete={handleDeleteClient}
-                onClear={() => setActiveClient(null)}
-              />
-            </div>
-
-            {/* List Sidebar Section */}
-            <div className="lg:col-span-4 h-full">
-              <ClientList 
-                clients={clients}
-                activeClientId={activeClient?.id}
-                onSelectClient={(c) => setActiveClient(c)}
-                onExportClients={handleExportClients}
-              />
-            </div>
-
-          </div>
+      <div className="flex flex-1 relative overflow-hidden">
+        {sidebarOpen && (
+          <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/70 z-30 md:hidden"></div>
         )}
 
-        {/* API connection checklist */}
-        <div className="bg-slate-100 rounded-2xl p-5 border border-slate-200/40 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-100">
-              <Globe2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-800">API Receita Federal</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Integrada via BrasilAPI para consultar CNPJ instantaneamente com status da Receita Federal.</p>
-            </div>
+        <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-[#070b14] border-r border-gray-800/80 p-3 flex flex-col gap-4 z-40 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 h-full overflow-y-auto`}>
+          <div className="flex justify-between items-center md:hidden pb-2 border-b border-gray-800">
+            <span className="text-xs font-bold text-gray-400 uppercase">Menu</span>
+            <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white text-lg p-1">✕</button>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-100">
-              <Globe2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-800">ViaCEP API</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Auto-preenchimento completo de Logradouro, Bairro, Cidade e UF ao digitar os 8 números do CEP.</p>
-            </div>
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 px-2">Navegação Principal</p>
+            <button className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white flex items-center gap-2">
+              🏠 Início / Dashboard
+            </button>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100">
-              <Zap className="w-4 h-4" />
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 px-2">Vendas & Lançamentos</p>
+            <button onClick={() => { setModalOpen(true); setSidebarOpen(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-blue-200 bg-blue-900/40 border border-blue-500/50 hover:bg-blue-600 hover:text-white transition flex items-center gap-2 mt-1">
+              <span>🧮</span> Calculadora Usicorte ⚡
+            </button>
+          </div>
+
+          <div className="mt-auto pt-3 border-t border-gray-800 text-[10px] text-gray-400">
+            <div className="flex justify-between items-center bg-gray-900/80 p-2 rounded-lg">
+              <span>Status Sistema:</span>
+              <span className="text-emerald-400 font-bold">● ONLINE</span>
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-800">Exportação Rápida</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Clique no botão de download para exportar os clientes salvos em formato JSON a qualquer momento.</p>
+          </div>
+        </aside>
+
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#030712] space-y-4 sm:space-y-6 w-full">
+          <div className="bg-[#070d1a] border border-gray-800 rounded-2xl p-4 sm:p-8 text-center relative overflow-hidden shadow-2xl">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-2">
+              Usi<span className="text-red-500">corte</span> Metais
+            </h2>
+            <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sistema ERP de Gestão de Cotações e Vendas</p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-6 sm:mt-8">
+              <button onClick={() => setModalOpen(true)} className="bg-[#0d1c38] border-2 border-blue-500 hover:bg-blue-600/20 p-4 rounded-xl flex flex-col items-center justify-center transition col-span-2 sm:col-span-1">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400 flex items-center justify-center text-blue-300 text-xl mb-2">⚡</div>
+                <span className="text-xs font-bold text-blue-200">Calculadora Usicorte</span>
+                <span className="text-[10px] text-blue-400/80 mt-1">Cálculo Rápido</span>
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-2 sm:p-4 z-50 backdrop-blur-sm">
+          <div className="bg-[#0b1329] border border-gray-800 rounded-2xl w-full max-w-2xl p-4 sm:p-6 shadow-2xl relative text-sm max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-800 sticky top-0 bg-[#0b1329] z-10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-600/20 border border-blue-500/40 rounded-lg flex items-center justify-center text-blue-400 font-bold">U</div>
+                <h2 className="text-sm sm:text-base font-bold text-blue-400">Calculadora Usicorte Metais</h2>
+              </div>
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-white text-xl font-bold px-2">✕</button>
+            </div>
+
+            <div className="space-y-3 sm:space-y-4 mb-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Constante / Material</label>
+                <select value={matIndex} onChange={handleMaterialChange} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white text-xs sm:text-sm">
+                  <option value="">Selecione o perfil/material...</option>
+                  {tabelaConstantes.map((mat, idx) => (
+                    <option key={idx} value={idx}>{mat.nome} (k: {mat.k} | R$ {Math.ceil(mat.precoKg)}/kg)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-[#081226]/50 border border-gray-800 rounded-xl p-3">
+                <span className="text-xs text-gray-400 block mb-2">Dimensões padrão</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button onClick={() => aplicarDimensao(1200, 3000)} className="bg-[#131f37] border border-blue-500/50 text-blue-300 font-bold py-1.5 rounded text-xs">1200x3000</button>
+                  <button onClick={() => aplicarDimensao(1250, 3000)} className="bg-[#131f37] border border-gray-700 text-gray-300 font-bold py-1.5 rounded text-xs">1250x3000</button>
+                  <button onClick={() => aplicarDimensao(1500, 3000)} className="bg-[#131f37] border border-gray-700 text-gray-300 font-bold py-1.5 rounded text-xs">1500x3000</button>
+                  <button onClick={() => aplicarDimensao(1500, 6000)} className="bg-[#131f37] border border-gray-700 text-gray-300 font-bold py-1.5 rounded text-xs">1500x6000</button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Diâmetro (Ø)</label>
+                  <input type="number" value={diametro} onChange={(e) => setDiametro(e.target.value)} disabled={matSelecionado?.tipo === 'chapa'} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white disabled:opacity-30" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Espessura</label>
+                  <input type="number" value={espessura} onChange={(e) => setEspessura(e.target.value)} disabled={matSelecionado?.tipo === 'macico'} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white disabled:opacity-30" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Largura (mm)</label>
+                  <input type="number" value={largura} onChange={(e) => setLargura(e.target.value)} disabled={matSelecionado?.tipo !== 'chapa'} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white disabled:opacity-30" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Comprimento</label>
+                  <input type="number" value={comprimento} onChange={(e) => setComprimento(e.target.value)} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Descrição</label>
+                <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white text-xs sm:text-sm" />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Observação</label>
+                <input type="text" value={observacao} onChange={(e) => setObservacao(e.target.value)} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white text-xs sm:text-sm" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Qtd (Peças)</label>
+                <input type="number" value={qtd} onChange={(e) => setQtd(Number(e.target.value))} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white font-bold" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Preço / Kg (R$)</label>
+                <input type="number" value={precoKg} onChange={(e) => setPrecoKg(e.target.value)} className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white font-bold" />
+              </div>
+            </div>
+
+            <div className="bg-[#081226] border border-blue-600/40 rounded-xl p-3 sm:p-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <span className="block text-[11px] text-gray-400">Valor Unitário</span>
+                <span className="font-bold text-base text-blue-300">R$ {valorUnitarioArredondado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div>
+                <span className="block text-[11px] text-gray-400">Valor Total</span>
+                <span className="font-extrabold text-lg text-emerald-400">R$ {valorTotalArredondado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div>
+                <span className="block text-[11px] text-gray-400">Peso Estimado</span>
+                <span className="font-bold text-base text-blue-400">{pesoTotal.toFixed(3).replace('.', ',')} KG</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button type="button" onClick={() => { alert('Adicionado!'); resetForm(); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm">
+                🛍️ Adicionar ao Orçamento PDV
+              </button>
+              <button type="button" onClick={copiarResumo} className="w-full bg-[#131f37] border border-gray-700 text-gray-300 py-2 rounded-xl text-xs">
+                📋 Copiar Resumo
+              </button>
             </div>
           </div>
         </div>
-
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-auto pt-12 border-t border-slate-200/60 max-w-7xl mx-auto w-full px-4 text-center">
-        <p className="text-[11px] text-slate-400 font-medium">
-          Cadastro de Clientes SEFAZ Live Integrator • Desenvolvido com React 19 + Tailwind v4 + Lucide Icons
-        </p>
-      </footer>
-
+      )}
     </div>
   );
 }
