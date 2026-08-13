@@ -542,42 +542,45 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
             </p>
           </div>
 
-          {/* BOTÕES DAS PROPOSTAS DE IMPRESSÃO */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => gerarEImprimir('A4-inteiro')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
-                activeModel === 'A4-inteiro'
-                  ? 'bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-blue-400/40'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>📄 Proposta A4 (Inteiro)</span>
-            </button>
-
+          {/* BOTÕES DAS PROPOSTAS DE IMPRESSÃO (AÇÕES INDEPENDENTES) */}
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               onClick={() => gerarEImprimir('A4-2vias')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
+              title="Imprime apenas a Via do Cliente e Via da Empresa/Produção em A4 (oculta a etiqueta da peça)"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
                 activeModel === 'A4-2vias'
-                  ? 'bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-blue-400/40'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                  ? 'bg-amber-600 text-white shadow-amber-600/30 ring-2 ring-amber-300'
+                  : 'bg-slate-800 hover:bg-amber-900/40 text-amber-200 border border-amber-500/40'
               }`}
             >
-              <Scissors className="w-4 h-4 text-amber-400" />
-              <span>✂️ Pedido A4 (2 Vias / Meio)</span>
+              <Scissors className="w-4 h-4 text-amber-300" />
+              <span>📋 Imprimir Pedido (A4)</span>
             </button>
 
             <button
               onClick={() => gerarEImprimir('etiqueta-80')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
+              title="Imprime apenas a Etiqueta de Identificação da Peça (oculta as vias do pedido em A4)"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
                 activeModel === 'etiqueta-80'
-                  ? 'bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-blue-400/40'
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-300'
+                  : 'bg-slate-800 hover:bg-emerald-900/40 text-emerald-200 border border-emerald-500/40'
+              }`}
+            >
+              <Tag className="w-4 h-4 text-emerald-300" />
+              <span>🏷️ Imprimir Etiqueta da Peça</span>
+            </button>
+
+            <button
+              onClick={() => gerarEImprimir('A4-inteiro')}
+              title="Imprime a Proposta Comercial completa em A4"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
+                activeModel === 'A4-inteiro'
+                  ? 'bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-blue-300'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
               }`}
             >
-              <Tag className="w-4 h-4 text-emerald-400" />
-              <span>🏷️ Etiqueta 80x80mm (c/ Desenho)</span>
+              <FileText className="w-4 h-4 text-blue-300" />
+              <span>📄 Imprimir Proposta (A4 Inteiro)</span>
             </button>
           </div>
         </div>

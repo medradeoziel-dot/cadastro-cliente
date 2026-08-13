@@ -5,7 +5,7 @@
    =================================================== */
 @media print {
   /* Oculta menus, sidebars, barras de status e botões */
-  .topbar, .sidebar, .statusbar, .screen-header, .btn-no-print, header, aside, footer, nav {
+  .topbar, .sidebar, .statusbar, .screen-header, .btn-no-print, header, aside, footer, nav, .filtros-bar, .login-overlay {
     display: none !important;
   }
 
@@ -25,29 +25,75 @@
 
   #screen-relatorios {
     display: block !important;
-  }
-
-  /* PROPOSTA A4 INTEIRO */
-  #doc-A4-inteiro {
-    width: 100% !important;
-    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
     background: #fff !important;
   }
 
-  /* PROPOSTA A4 DIVIDIDO AO MEIO (2 VIAS) */
-  .modelo-duas-vias {
+  #container-impressao {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* REGRA GERAL DE OCULTAÇÃO DE MODELOS INATIVOS NAS IMPRESSÕES */
+  .hidden, 
+  .print\:hidden, 
+  [class*="hidden"],
+  .documento-modelo.hidden, 
+  .documento-modelo.print\:hidden {
+    display: none !important;
+  }
+
+  /* ---------------------------------------------------
+     MODELO 1: PROPOSTA A4 INTEIRO
+     --------------------------------------------------- */
+  #doc-A4-inteiro:not(.hidden):not(.print\:hidden) {
+    display: block !important;
+    width: 100% !important;
+    color: #000 !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* ---------------------------------------------------
+     MODELO 2: PEDIDO A4 DIVIDIDO AO MEIO (2 VIAS)
+     Imprime APENAS a Via do Cliente e Via da Empresa/Produção.
+     Oculta Etiqueta de Identificação e outros documentos.
+     --------------------------------------------------- */
+  .modelo-duas-vias:not(.hidden):not(.print\:hidden) {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    height: 297mm !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 270mm !important; /* Cabe em 1 única folha A4 sem folha em branco */
+    min-height: 0 !important;
     box-sizing: border-box !important;
-    padding: 10mm !important;
+    padding: 2mm !important;
+    margin: 0 auto !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .via-pedido {
-    height: 138mm !important;
+    height: 125mm !important;
+    min-height: 0 !important;
     border: 1px solid #000 !important;
-    padding: 8mm !important;
+    padding: 5mm 8mm !important;
     border-radius: 4px !important;
     box-sizing: border-box !important;
     display: flex !important;
@@ -59,37 +105,45 @@
   .linha-corte {
     border-top: 2px dashed #000 !important;
     text-align: center !important;
-    margin: 5mm 0 !important;
+    margin: 3mm 0 !important;
     position: relative !important;
   }
 
+  .linha-corte span,
   .linha-corte::after {
-    content: "✂️ CORTE AQUI" !important;
     background: #fff !important;
     padding: 0 10px !important;
     font-size: 8pt !important;
     font-weight: bold !important;
-    position: relative !important;
-    top: -9px !important;
     color: #000 !important;
   }
 
-  /* ETIQUETA CUPOM 80x80mm COM TRAVAS DE SEGURANÇA */
-  .modelo-etiqueta-80 {
+  /* ---------------------------------------------------
+     MODELO 3: ETIQUETA CUPOM 80x80mm
+     Imprime APENAS a Etiqueta de Identificação da Peça.
+     Oculta as Vias do Pedido em A4.
+     --------------------------------------------------- */
+  .modelo-etiqueta-80:not(.hidden):not(.print\:hidden) {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     width: 80mm !important;
+    max-width: 80mm !important;
     height: 80mm !important;
+    max-height: 80mm !important;
     padding: 3mm !important;
     box-sizing: border-box !important;
     border: 1px solid #000 !important;
     font-family: Arial, sans-serif !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
-    page-break-after: always !important;
     background: #fff !important;
     color: #000 !important;
     margin: 0 auto !important;
-    overflow: hidden !important; /* Trava geral para nada sair do quadro de 80x80 */
+    box-shadow: none !important;
+    overflow: hidden !important; /* Evita gerar páginas em branco extras */
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .etiqueta-header {
@@ -103,23 +157,21 @@
     gap: 2mm !important;
     margin-top: 2mm !important;
     flex: 1 !important;
-    min-height: 0 !important; /* Impede estouro vertical no Flexbox */
+    min-height: 0 !important;
   }
 
-  /* REGRA DE QUEBRA DE TEXTO */
   .etiqueta-dados {
     flex: 1 !important;
     font-size: 7.5pt !important;
-    min-width: 0 !important; /* Permite o encolhimento do container */
+    min-width: 0 !important;
     word-wrap: break-word !important;
     word-break: break-word !important;
     overflow: hidden !important;
   }
 
-  /* CONTROLE DO NOME FANTASIA */
   .lbl-cliente-nome {
     display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important; /* Limita em até 2 linhas caso o nome ainda seja extenso */
+    -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -128,11 +180,10 @@
     font-weight: bold !important;
   }
 
-  /* CAIXA DE DESENHO COM DIMENSÃO FIXA */
   .etiqueta-foto-box {
-    width: 32mm !important;
-    height: 32mm !important;
-    min-width: 32mm !important; /* Garante que nunca seja espremida pelo texto */
+    width: 30mm !important;
+    height: 30mm !important;
+    min-width: 30mm !important;
     border: 1px dashed #000 !important;
     display: flex !important;
     align-items: center !important;
@@ -145,6 +196,24 @@
     max-width: 100% !important;
     max-height: 100% !important;
     object-fit: contain !important;
+  }
+
+  /* Regras dinâmicas por data-print-mode no body */
+  body[data-print-mode="etiqueta-80"] {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    height: 80mm !important;
+    max-height: 80mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body[data-print-mode="A4-2vias"],
+  body[data-print-mode="A4-inteiro"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Layout de Impressão Direta da Tabela de Consulta */
