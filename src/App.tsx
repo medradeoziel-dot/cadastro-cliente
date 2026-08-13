@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 
+// --- TABELA DE CONSTANTES E MATERIAIS ---
 const tabelaConstantes = [
   { nome: "BRONZE TM 620", k: 0.0072, precoKg: 200, tipo: "macico" },
   { nome: "BRONZE TM 23", k: 0.0072, precoKg: 150, tipo: "macico" },
@@ -33,8 +34,10 @@ const tabelaConstantes = [
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Estados da Calculadora
   const [matIndex, setMatIndex] = useState('');
   const [diametro, setDiametro] = useState('');
   const [espessura, setEspessura] = useState('');
@@ -121,28 +124,45 @@ export default function App() {
   };
 
   return (
-    <div className="bg-[#030712] text-white min-h-screen flex flex-col font-sans">
-      <header className="h-14 bg-[#090d16] border-b border-gray-800 flex items-center justify-between px-4 z-20 sticky top-0">
+    <div className="bg-[#030712] text-white min-h-screen flex flex-col font-sans select-none">
+      {/* HEADER SUPERIOR */}
+      <header className="h-14 bg-[#070b14] border-b border-gray-800 flex items-center justify-between px-4 z-20 sticky top-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden text-gray-300 hover:text-white text-xl p-1">
             ☰
           </button>
-          <span className="text-xs bg-red-950/80 border border-red-800 text-red-400 font-bold px-2 py-0.5 rounded">ERP</span>
-          <h1 className="font-extrabold tracking-wide text-base md:text-lg">Metais</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-black text-lg tracking-wider">
+              Usi<span className="text-red-500">corte</span> <span className="font-light text-gray-300">Metais</span>
+            </h1>
+            <span className="text-[10px] bg-red-950/80 border border-red-800 text-red-400 font-bold px-1.5 py-0.5 rounded">ERP</span>
+          </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-1">
-          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📦 Produtos</button>
-          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">👥 Clientes</button>
-          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📋 Lançamento</button>
-          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">🛒 Vendas</button>
-          <button className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-gray-800 transition">📊 Relatórios</button>
+        {/* NAVEGAÇÃO SUPERIOR */}
+        <div className="hidden md:flex items-center gap-1 text-xs text-gray-400 font-semibold">
+          <button onClick={() => setActiveTab('produtos')} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:text-white hover:bg-gray-800/60 transition ${activeTab === 'produtos' ? 'bg-gray-800 text-white' : ''}`}>
+            <span>📦</span> Produtos
+          </button>
+          <button onClick={() => setActiveTab('clientes')} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:text-white hover:bg-gray-800/60 transition ${activeTab === 'clientes' ? 'bg-gray-800 text-white' : ''}`}>
+            <span>👥</span> Clientes
+          </button>
+          <button onClick={() => setActiveTab('lancamento')} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:text-white hover:bg-gray-800/60 transition ${activeTab === 'lancamento' ? 'bg-gray-800 text-white' : ''}`}>
+            <span>📋</span> Lançamento
+          </button>
+          <button onClick={() => setActiveTab('vendas')} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:text-white hover:bg-gray-800/60 transition ${activeTab === 'vendas' ? 'bg-gray-800 text-white' : ''}`}>
+            <span>🛒</span> Vendas
+          </button>
+          <button onClick={() => setActiveTab('relatorios')} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:text-white hover:bg-gray-800/60 transition ${activeTab === 'relatorios' ? 'bg-gray-800 text-white' : ''}`}>
+            <span>📊</span> Relatórios
+          </button>
         </div>
 
+        {/* USUÁRIO */}
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs shadow-md shadow-blue-600/30">A</div>
           <div className="text-left hidden sm:block">
-            <p className="text-xs font-bold leading-none">ADMINISTRADOR</p>
+            <p className="text-xs font-bold leading-none tracking-wide">ADMINISTRADOR</p>
             <p className="text-[10px] text-gray-400 leading-tight">Administrador</p>
           </div>
         </div>
@@ -153,52 +173,175 @@ export default function App() {
           <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/70 z-30 md:hidden"></div>
         )}
 
-        <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-[#070b14] border-r border-gray-800/80 p-3 flex flex-col gap-4 z-40 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 h-full overflow-y-auto`}>
+        {/* SIDEBAR LATERAL COMPLETA */}
+        <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-[#050811] border-r border-gray-800/80 p-3 flex flex-col gap-5 z-40 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 h-full overflow-y-auto`}>
           <div className="flex justify-between items-center md:hidden pb-2 border-b border-gray-800">
-            <span className="text-xs font-bold text-gray-400 uppercase">Menu</span>
+            <span className="text-xs font-bold text-gray-400 uppercase">Menu Principal</span>
             <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white text-lg p-1">✕</button>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 px-2">Navegação Principal</p>
-            <button className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white flex items-center gap-2">
-              🏠 Início / Dashboard
-            </button>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">NAVEGAÇÃO PRINCIPAL</p>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab('dashboard')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${activeTab === 'dashboard' ? 'bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                <span className="flex items-center gap-2">🏠 Início / Dashboard</span>
+              </button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${activeTab === 'clientes' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                <span className="flex items-center gap-2">👥 Cadastro de Clientes</span>
+                <span className="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400">3</span>
+              </button>
+              <button onClick={() => setActiveTab('produtos')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${activeTab === 'produtos' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                <span className="flex items-center gap-2">📦 Cadastro de Produtos</span>
+                <span className="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400">28</span>
+              </button>
+            </div>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 px-2">Vendas & Lançamentos</p>
-            <button onClick={() => { setModalOpen(true); setSidebarOpen(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-blue-200 bg-blue-900/40 border border-blue-500/50 hover:bg-blue-600 hover:text-white transition flex items-center gap-2 mt-1">
-              <span>🧮</span> Calculadora Usicorte ⚡
-            </button>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">VENDAS & LANÇAMENTOS</p>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab('lancamento')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${activeTab === 'lancamento' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                📋 Lançamento / Orçamento
+              </button>
+              <button onClick={() => { setModalOpen(true); setSidebarOpen(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-blue-300 bg-blue-950/40 border border-blue-500/40 hover:bg-blue-600 hover:text-white transition flex items-center gap-2 mt-1 shadow-md">
+                ⚡ Calculadora Usicorte ⚡
+              </button>
+              <button onClick={() => setActiveTab('os')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${activeTab === 'os' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                📑 OS Diária (Expediente)
+              </button>
+              <button onClick={() => setActiveTab('vendas')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${activeTab === 'vendas' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                🛒 Força de Vendas / PDV
+              </button>
+            </div>
           </div>
 
-          <div className="mt-auto pt-3 border-t border-gray-800 text-[10px] text-gray-400">
-            <div className="flex justify-between items-center bg-gray-900/80 p-2 rounded-lg">
-              <span>Status Sistema:</span>
-              <span className="text-emerald-400 font-bold">● ONLINE</span>
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">GESTÃO & FISCAL</p>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab('relatorios')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${activeTab === 'relatorios' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                📊 Relatórios & Propostas
+              </button>
+              <button onClick={() => setActiveTab('php')} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${activeTab === 'php' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/40'}`}>
+                💻 Código PHP / MySQL
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-3 border-t border-gray-800/80 text-[10px] text-gray-400">
+            <div className="flex flex-col gap-1 bg-gray-900/60 p-2.5 rounded-xl border border-gray-800">
+              <div className="flex justify-between items-center">
+                <span>Status Sistema:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">● ONLINE</span>
+              </div>
+              <span className="text-[9px] text-gray-500">Banco Local & APIs Ativas</span>
             </div>
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#030712] space-y-4 sm:space-y-6 w-full">
-          <div className="bg-[#070d1a] border border-gray-800 rounded-2xl p-4 sm:p-8 text-center relative overflow-hidden shadow-2xl">
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-2">
+        {/* ÁREA PRINCIPAL / DASHBOARD COMPLETO */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#030712] space-y-6 w-full">
+          {/* PAINEL PRINCIPAL HEADER */}
+          <div className="bg-[#070c18] border border-gray-800 rounded-2xl p-6 sm:p-8 text-center relative overflow-hidden shadow-2xl">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-1">
               Usi<span className="text-red-500">corte</span> Metais
             </h2>
-            <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sistema ERP de Gestão de Cotações e Vendas</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">
+              SISTEMA ERP DE GESTÃO DE COTAÇÕES E VENDAS
+            </p>
+            <p className="text-xs text-gray-500 max-w-xl mx-auto -mt-4 mb-6 hidden sm:block">
+              Selecione um módulo abaixo para começar a trabalhar, calcular pesos com constantes metalúrgicas ou emitir relatórios comerciais:
+            </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-6 sm:mt-8">
-              <button onClick={() => setModalOpen(true)} className="bg-[#0d1c38] border-2 border-blue-500 hover:bg-blue-600/20 p-4 rounded-xl flex flex-col items-center justify-center transition col-span-2 sm:col-span-1">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400 flex items-center justify-center text-blue-300 text-xl mb-2">⚡</div>
+            {/* GRID DE BOTÕES RÁPIDOS */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <button onClick={() => setModalOpen(true)} className="bg-[#0b162b] border-2 border-blue-500 hover:bg-blue-600/20 p-3.5 rounded-xl flex flex-col items-center justify-center transition shadow-lg group">
+                <div className="w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-400 flex items-center justify-center text-blue-300 text-lg mb-2 group-hover:scale-110 transition">⚡</div>
                 <span className="text-xs font-bold text-blue-200">Calculadora Usicorte</span>
-                <span className="text-[10px] text-blue-400/80 mt-1">Cálculo Rápido</span>
+                <span className="text-[9px] text-blue-400/80 mt-0.5">Cálculo Rápido</span>
               </button>
+
+              <button onClick={() => setActiveTab('lancamento')} className="bg-[#090f1d] border border-gray-800 hover:border-gray-700 hover:bg-gray-800/40 p-3.5 rounded-xl flex flex-col items-center justify-center transition group">
+                <div className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-300 text-lg mb-2 group-hover:scale-110 transition">🧮</div>
+                <span className="text-xs font-bold text-gray-200">Novo Lançamento</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">Cálculo por ENTER</span>
+              </button>
+
+              <button onClick={() => setActiveTab('os')} className="bg-[#090f1d] border border-gray-800 hover:border-gray-700 hover:bg-gray-800/40 p-3.5 rounded-xl flex flex-col items-center justify-center transition group">
+                <div className="w-9 h-9 rounded-lg bg-red-950/40 border border-red-800/50 flex items-center justify-center text-red-400 text-lg mb-2 group-hover:scale-110 transition">📋</div>
+                <span className="text-xs font-bold text-gray-200">OS Diária (POV)</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">Fechar Expediente</span>
+              </button>
+
+              <button onClick={() => setActiveTab('clientes')} className="bg-[#090f1d] border border-gray-800 hover:border-gray-700 hover:bg-gray-800/40 p-3.5 rounded-xl flex flex-col items-center justify-center transition group">
+                <div className="w-9 h-9 rounded-lg bg-blue-950/40 border border-blue-800/50 flex items-center justify-center text-blue-400 text-lg mb-2 group-hover:scale-110 transition">👥</div>
+                <span className="text-xs font-bold text-gray-200">Clientes</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">3 cadastrados</span>
+              </button>
+
+              <button onClick={() => setActiveTab('produtos')} className="bg-[#090f1d] border border-gray-800 hover:border-gray-700 hover:bg-gray-800/40 p-3.5 rounded-xl flex flex-col items-center justify-center transition group">
+                <div className="w-9 h-9 rounded-lg bg-purple-950/40 border border-purple-800/50 flex items-center justify-center text-purple-400 text-lg mb-2 group-hover:scale-110 transition">📦</div>
+                <span className="text-xs font-bold text-gray-200">Produtos</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">28 materiais</span>
+              </button>
+
+              <button onClick={() => setActiveTab('vendas')} className="bg-[#090f1d] border border-gray-800 hover:border-gray-700 hover:bg-gray-800/40 p-3.5 rounded-xl flex flex-col items-center justify-center transition group">
+                <div className="w-9 h-9 rounded-lg bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-center text-emerald-400 text-lg mb-2 group-hover:scale-110 transition">🛒</div>
+                <span className="text-xs font-bold text-gray-200">Vendas & PDV</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">Fechamento Rápido</span>
+              </button>
+            </div>
+          </div>
+
+          {/* METRICAS DO DASHBOARD */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#070c18] border border-gray-800/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">CLIENTES CADASTRADOS</p>
+                <p className="text-2xl font-black text-white mt-1">3</p>
+                <p className="text-[10px] text-emerald-400 mt-1">2 CNPJs • 1 CPFs</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xl">
+                👥
+              </div>
+            </div>
+
+            <div className="bg-[#070c18] border border-gray-800/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">MATERIAIS NO CATÁLOGO</p>
+                <p className="text-2xl font-black text-white mt-1">28</p>
+                <p className="text-[10px] text-purple-400 mt-1">Chapas, Maciços, Buchas</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-xl">
+                📦
+              </div>
+            </div>
+
+            <div className="bg-[#070c18] border border-gray-800/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">ITENS NA COTAÇÃO</p>
+                <p className="text-2xl font-black text-white mt-1">2</p>
+                <p className="text-[10px] text-amber-400 mt-1">Peso: 717,79 Kg</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-600/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl">
+                ⚖️
+              </div>
+            </div>
+
+            <div className="bg-[#070c18] border border-gray-800/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">TOTAL COTAÇÃO ATUAL</p>
+                <p className="text-2xl font-black text-emerald-400 mt-1">R$ 15.238,42</p>
+                <p className="text-[10px] text-gray-500 mt-1">COT-2026-0001</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl">
+                📈
+              </div>
             </div>
           </div>
         </main>
       </div>
 
+      {/* MODAL CALCULADORA USICORTE */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-2 sm:p-4 z-50 backdrop-blur-sm">
           <div className="bg-[#0b1329] border border-gray-800 rounded-2xl w-full max-w-2xl p-4 sm:p-6 shadow-2xl relative text-sm max-h-[92vh] overflow-y-auto">
@@ -288,10 +431,10 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
-              <button type="button" onClick={() => { alert('Adicionado!'); resetForm(); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm">
+              <button type="button" onClick={() => { alert('Adicionado!'); resetForm(); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20">
                 🛍️ Adicionar ao Orçamento PDV
               </button>
-              <button type="button" onClick={copiarResumo} className="w-full bg-[#131f37] border border-gray-700 text-gray-300 py-2 rounded-xl text-xs">
+              <button type="button" onClick={copiarResumo} className="w-full bg-[#131f37] border border-gray-700 text-gray-300 py-2 rounded-xl text-xs hover:bg-gray-800 transition">
                 📋 Copiar Resumo
               </button>
             </div>
