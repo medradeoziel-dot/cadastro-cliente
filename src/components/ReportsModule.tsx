@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Quote, QuoteItem, Client } from '../types';
 import Logo from './Logo';
+import { QuotePrintView } from './QuotePrintView';
 import { 
   formatCurrency, 
   formatWeightKg, 
@@ -27,7 +28,8 @@ import {
   Search,
   Filter,
   CheckSquare,
-  Square
+  Square,
+  Sparkles
 } from 'lucide-react';
 
 interface ReportsModuleProps {
@@ -36,7 +38,7 @@ interface ReportsModuleProps {
   onNavigateToQuote?: () => void;
 }
 
-type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80';
+type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80' | 'proposta-resumida';
 
 export interface ConsultaItem {
   idVer: number;
@@ -273,7 +275,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   const shippingVal = currentQuote.shipping || 0;
   const grandTotal = currentQuote.grandTotal || (subtotalValue - discountVal + shippingVal);
 
-  const activeItem = currentQuote.items[selectedItemIndex] || currentQuote.items[0] || {
+  const activeItem: Partial<QuoteItem> = currentQuote.items[selectedItemIndex] || currentQuote.items[0] || {
     material: 'BRONZE TM-23 REDONDO',
     constanteNome: 'BRONZE TM-23 REDONDO',
     measure: 'Ø 50 × 200 mm',
@@ -281,7 +283,9 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     quantity: 1,
     qtd: 1,
     unitPrice: 185.00,
-    totalWeightKg: 3.450
+    totalWeightKg: 3.450,
+    observacao: 'CONFORME DESENHO TÉCNICO',
+    description: 'BUCHA USINADA'
   };
 
   const handleExportJSON = () => {
@@ -702,6 +706,15 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {drawingPhoto && (
+                <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900 overflow-hidden flex items-center justify-center shrink-0">
+                  <img 
+                    src={drawingPhoto} 
+                    alt="Miniatura" 
+                    className="desenho-tecnico-img w-full h-full object-contain"
+                  />
+                </div>
+              )}
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -728,7 +741,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-semibold">Visualizar na tela:</span>
-            <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
               <button
                 onClick={() => setActiveModel('A4-inteiro')}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
@@ -736,6 +749,15 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
                 }`}
               >
                 A4 Inteiro
+              </button>
+              <button
+                onClick={() => setActiveModel('proposta-resumida')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                  activeModel === 'proposta-resumida' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>Proposta 4 Colunas</span>
               </button>
               <button
                 onClick={() => setActiveModel('A4-2vias')}
@@ -780,45 +802,105 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
       {/* ===================================================
            CONTAINER DE IMPRESSÃO (O QUE SAI NA IMPRESSORA E NA PRÉVIA)
            =================================================== */}
-      <div id="container-impressao" className="bg-slate-900/60 p-4 sm:p-6 rounded-2xl border border-slate-800">
+      <div id="container-impressao" className="bg-slate-900/60 p-2 sm:p-6 rounded-2xl border border-slate-800 w-full overflow-x-hidden">
         
         {/* ===================================================
              PROPOSTA 1: RELATÓRIO A4 INTEIRO
              =================================================== */}
         <div 
           id="doc-A4-inteiro" 
-          className={`documento-modelo secao-proposta bg-white text-slate-900 p-8 rounded-xl shadow-2xl font-sans max-w-4xl mx-auto ${
+          className={`documento-modelo secao-proposta bg-white text-slate-900 p-4 sm:p-8 rounded-xl shadow-2xl font-sans w-full max-w-4xl mx-auto overflow-x-hidden ${
             activeModel === 'A4-inteiro' ? 'block' : 'hidden'
           }`}
           style={{ minHeight: '800px' }}
         >
           {/* Header */}
-          <div className="border-b-2 border-black pb-3 mb-4 flex justify-between items-center">
+          <div className="border-b-2 border-black pb-3 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <div className="logo-impressao mb-2" style={{ width: '180px' }}>
                 <Logo variant="light" className="w-[180px] h-auto" />
               </div>
               <p className="m-0 text-xs font-semibold text-slate-600 tracking-wide uppercase">Relatório / Proposta Comercial</p>
             </div>
-            <div className="text-right text-xs space-y-0.5">
+            <div className="text-left sm:text-right text-xs space-y-0.5 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
               <div><strong>PROPOSTA Nº:</strong> <span className="rel-numero font-mono font-bold text-blue-800">{currentQuote.quoteNumber || '00124'}</span></div>
               <div><strong>DATA:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
             </div>
           </div>
 
           {/* Client box */}
-          <div className="bg-slate-100 border border-slate-300 p-3 rounded-md mb-4 text-xs flex justify-between items-center">
+          <div className="bg-slate-100 border border-slate-300 p-3 rounded-md mb-4 text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div>
               <span className="font-bold text-slate-700">EMPRESA / CLIENTE:</span>{' '}
-              <strong className="lbl-cliente-nome text-slate-900 text-sm font-black uppercase">{selectedClientName}</strong>
+              <strong className="lbl-cliente-nome text-slate-900 text-sm font-black uppercase break-words">{selectedClientName}</strong>
             </div>
             <div className="text-slate-600 font-mono">
               Condições: <strong>{currentQuote.paymentTerms || 'À Vista / Pix'}</strong>
             </div>
           </div>
 
-          {/* 8-Column Table */}
-          <table className="w-full border-collapse text-xs mb-6" border={1} cellPadding={6}>
+          {/* 📱 MOBILE: Cards de Produtos (< 640px) */}
+          <div className="block sm:hidden space-y-3 mb-6 flex flex-col">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Itens da Proposta ({currentQuote.items.length})
+            </span>
+            {currentQuote.items.length === 0 ? (
+              <div className="py-6 text-center text-slate-500 italic text-xs bg-slate-50 rounded-lg border border-slate-200">
+                Nenhum item na cotação para exibição.
+              </div>
+            ) : (
+              currentQuote.items.map((item, idx) => {
+                const produtoMaterial = item.constanteNome || item.constantName || item.material || 'MATERIAL';
+                const medidasFormatadas = formatarMedidasLimpa(item);
+                const descricaoItem = item.descricao || item.description || '-';
+                const informacoesObs = item.observacao || item.notes || item.info || '-';
+                const valorUnitario = Number(item.valorUnitario !== undefined ? item.valorUnitario : (item.unitPrice || 0));
+                const qtd = Number(item.qtd !== undefined ? item.qtd : (item.quantity || 1));
+                const pesoTotal = Number(item.pesoTotal !== undefined ? item.pesoTotal : (item.totalWeightKg || 0));
+                const subtotal = Number(item.subtotal !== undefined ? item.subtotal : (valorUnitario * qtd));
+
+                return (
+                  <div key={item.id || idx} className="border border-slate-300 rounded-lg p-3 bg-white space-y-2 text-xs shadow-xs">
+                    <div className="flex justify-between items-center border-b border-slate-200 pb-1.5">
+                      <span className="text-[10px] text-slate-500 uppercase font-bold">Produto / Material</span>
+                      <strong className="font-bold text-slate-900 text-sm">{produtoMaterial}</strong>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Medidas</span>
+                      <span className="font-mono text-slate-800 font-semibold">{medidasFormatadas}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Descrição</span>
+                      <span className="text-slate-700">{descricaoItem}</span>
+                    </div>
+
+                    {informacoesObs !== '-' && (
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold block">Informações</span>
+                        <span className="italic text-slate-600">{informacoesObs}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="text-slate-500">Qtd: <strong>{qtd}</strong></span>
+                        <span className="mx-1.5 text-slate-300">|</span>
+                        <span className="text-slate-500">Peso: <strong>{formatWeightKg(pesoTotal, 3)}</strong></span>
+                      </div>
+                      <div className="font-bold text-slate-950 font-mono text-sm">
+                        {formatCurrency(subtotal)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 🖥️ DESKTOP: 8-Column Table (>= 640px) */}
+          <table className="hidden sm:table w-full border-collapse text-xs mb-6" border={1} cellPadding={6}>
             <thead>
               <tr className="bg-slate-200 text-slate-900 font-bold uppercase text-[11px] border-b border-black">
                 <th className="text-left p-2">PRODUTO / MATERIAL</th>
@@ -867,14 +949,14 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
           </table>
 
           {/* Totals & Notes footer */}
-          <div className="border-t-2 border-black pt-4 flex justify-between items-end text-xs">
-            <div className="space-y-1 text-slate-600 max-w-md">
+          <div className="border-t-2 border-black pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end text-xs gap-4">
+            <div className="space-y-1 text-slate-600 max-w-md w-full sm:w-auto">
               <p>• Validade da proposta: <strong>{currentQuote.validityDays || 10} dias</strong></p>
               <p>• Prazo de entrega: <strong>A combinar após aprovação</strong></p>
               {currentQuote.observations && <p>• Obs: {currentQuote.observations}</p>}
             </div>
 
-            <div className="text-right space-y-1 min-w-[220px]">
+            <div className="text-left sm:text-right space-y-1 w-full sm:w-auto min-w-[220px] bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-lg sm:rounded-none border sm:border-0 border-slate-200">
               <div className="flex justify-between text-slate-700">
                 <span>Peso Total Estimado:</span>
                 <strong className="font-mono">{formatWeightKg(totalWeight, 3)}</strong>
@@ -904,16 +986,16 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
              =================================================== */}
         <div 
           id="doc-A4-2vias" 
-          className={`documento-modelo secao-pedido modelo-duas-vias bg-white text-slate-900 p-6 rounded-xl shadow-2xl max-w-4xl mx-auto font-sans ${
+          className={`documento-modelo secao-pedido modelo-duas-vias bg-white text-slate-900 p-4 sm:p-6 rounded-xl shadow-2xl w-full max-w-4xl mx-auto font-sans overflow-x-hidden ${
             activeModel === 'A4-2vias' ? 'block' : 'hidden'
           }`}
           style={{ minHeight: '850px' }}
         >
           
           {/* VIA 1: CLIENTE */}
-          <div className="via-pedido border border-black p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
+          <div className="via-pedido border border-black p-3 sm:p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
             <div>
-              <div className="flex justify-between items-center border-b border-black pb-2 mb-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black pb-2 mb-3 gap-2">
                 <div className="flex items-center gap-3">
                   <div className="logo-impressao" style={{ width: '130px' }}>
                     <Logo variant="light" className="w-[130px] h-auto" />
@@ -925,12 +1007,29 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
                 </span>
               </div>
 
-              <div className="text-xs mb-3 text-slate-700 flex justify-between">
+              <div className="text-xs mb-3 text-slate-700 flex flex-col sm:flex-row justify-between gap-1">
                 <div><strong>Cliente:</strong> <span className="lbl-cliente-nome font-bold uppercase">{selectedClientName}</span></div>
                 <div><strong>Data:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
               </div>
 
-              <table className="w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
+              {/* Mobile Cards Via 1 */}
+              <div className="block sm:hidden space-y-2 mb-3">
+                {currentQuote.items.map((item, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded p-2 text-xs bg-slate-50 space-y-1">
+                    <div className="flex justify-between font-bold">
+                      <span>{item.constanteNome || item.material || 'MATERIAL'}</span>
+                      <span className="font-mono">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 flex justify-between">
+                      <span>Medida: {formatarMedidasLimpa(item)}</span>
+                      <span>Qtd: {item.qtd || item.quantity || 1}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table Via 1 */}
+              <table className="hidden sm:table w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
                 <thead>
                   <tr className="bg-slate-100 font-bold text-[10px] uppercase">
                     <th className="text-left p-1.5">MATERIAL</th>
@@ -954,7 +1053,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
               </table>
             </div>
 
-            <div className="flex justify-between items-center text-xs border-t border-black pt-2 mt-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs border-t border-black pt-2 mt-2 gap-2">
               <span className="text-slate-600">Assinatura Cliente: ___________________________________</span>
               <strong className="text-sm font-mono text-slate-950">TOTAL: <span className="lbl-valor-total">{formatCurrency(grandTotal)}</span></strong>
             </div>
@@ -968,9 +1067,9 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
           </div>
 
           {/* VIA 2: EMPRESA / PRODUÇÃO */}
-          <div className="via-pedido border border-black p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
+          <div className="via-pedido border border-black p-3 sm:p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
             <div>
-              <div className="flex justify-between items-center border-b border-black pb-2 mb-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black pb-2 mb-3 gap-2">
                 <div>
                   <strong className="text-sm tracking-tight text-slate-900 font-black">USICORTE METAIS</strong>
                   <span className="text-xs ml-2 px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-bold">VIA DA EMPRESA / PRODUÇÃO</span>
@@ -980,12 +1079,29 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
                 </span>
               </div>
 
-              <div className="text-xs mb-3 text-slate-700 flex justify-between">
+              <div className="text-xs mb-3 text-slate-700 flex flex-col sm:flex-row justify-between gap-1">
                 <div><strong>Cliente:</strong> <span className="lbl-cliente-nome font-bold uppercase">{selectedClientName}</span></div>
                 <div><strong>Data:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
               </div>
 
-              <table className="w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
+              {/* Mobile Cards Via 2 */}
+              <div className="block sm:hidden space-y-2 mb-3">
+                {currentQuote.items.map((item, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded p-2 text-xs bg-slate-50 space-y-1">
+                    <div className="flex justify-between font-bold">
+                      <span>{item.constanteNome || item.material || 'MATERIAL'}</span>
+                      <span className="font-mono">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 flex justify-between">
+                      <span>Medida: {formatarMedidasLimpa(item)}</span>
+                      <span>Qtd: {item.qtd || item.quantity || 1}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table Via 2 */}
+              <table className="hidden sm:table w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
                 <thead>
                   <tr className="bg-slate-100 font-bold text-[10px] uppercase">
                     <th className="text-left p-1.5">MATERIAL</th>
@@ -1009,7 +1125,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
               </table>
             </div>
 
-            <div className="flex justify-between items-center text-xs border-t border-black pt-2 mt-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs border-t border-black pt-2 mt-2 gap-2">
               <span className="text-slate-600">Vendedor / Produção: ___________________________________</span>
               <strong className="text-sm font-mono text-slate-950">TOTAL: <span className="lbl-valor-total">{formatCurrency(grandTotal)}</span></strong>
             </div>
@@ -1018,88 +1134,94 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
         </div>
 
         {/* ===================================================
-             PROPOSTA 3: ETIQUETA CUPOM 80x80mm COM/SEM FOTO
+             PROPOSTA 3: ETIQUETA CUPOM 80x80mm (IDENTIFICAÇÃO DA PEÇA)
              =================================================== */}
         <div 
           id="doc-etiqueta-80" 
-          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 bg-white text-slate-900 rounded-lg shadow-2xl mx-auto border border-black font-sans ${
+          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 w-full max-w-[380px] border-2 border-black rounded-lg p-4 bg-white text-black font-sans relative mx-auto shadow-2xl print:m-0 ${
             activeModel === 'etiqueta-80' ? 'block' : 'hidden'
           }`}
-          style={{ width: '300px', height: '300px', padding: '12px' }}
         >
-          {/* Header */}
-          <div className="etiqueta-header border-b border-black pb-1.5 text-center">
-            <strong style={{ fontSize: '9pt' }} className="font-black text-slate-950 tracking-wider block">USICORTE METAIS</strong>
-            <span style={{ fontSize: '7.5pt' }} className="font-mono text-slate-700 font-semibold">
-              PEDIDO Nº: <span className="rel-numero font-bold text-blue-900">{currentQuote.quoteNumber || '00124'}</span>
-            </span>
+          {/* Cabeçalho Original */}
+          <div className="etiqueta-header text-center pb-2 border-b-2 border-black mb-3">
+            <h2 className="font-extrabold text-xl tracking-wider uppercase leading-tight">USICORTE METAIS</h2>
+            <p className="text-xs font-bold text-gray-800 mt-0.5">
+              PEDIDO Nº: <span className="font-mono font-black text-blue-900 rel-numero">{currentQuote.quoteNumber || currentQuote.id || 'COT-2026-9663'}</span>
+            </p>
           </div>
 
-          {/* Corpo com Dados e Foto do Desenho */}
-          <div className="etiqueta-corpo flex gap-2 my-2 items-center justify-between flex-1">
-            
-            {/* Dados da peça com Trava e Quebra de Texto */}
-            <div className="etiqueta-dados text-xs flex-1">
-              <p style={{ margin: '1px 0' }}>
-                <strong className="text-[9px] text-slate-500 uppercase block font-bold">EMPRESA:</strong>
-                <span className="lbl-cliente-nome font-bold text-slate-900 leading-tight block uppercase">
-                  {selectedClientName || 'CLIENTE BALCÃO'}
-                </span>
-              </p>
+          {/* Conteúdo: Dados + Desenho */}
+          <div className="etiqueta-corpo grid grid-cols-12 gap-2 items-start mb-3">
+            {/* Coluna Esquerda - Informações */}
+            <div className="etiqueta-dados col-span-7 text-xs space-y-1.5 leading-tight">
+              <div>
+                <span className="font-bold text-gray-600 block text-[10px]">EMPRESA / CLIENTE:</span>
+                <span className="lbl-cliente-nome font-extrabold uppercase block">{selectedClientName || currentQuote.clientName || 'CLIENTE BALCÃO'}</span>
+              </div>
 
-              <p style={{ margin: '1px 0' }}>
-                <strong className="text-[9px] text-slate-500 uppercase block font-bold">MATERIAL:</strong>
-                <span id="etiq-material" className="font-extrabold text-blue-950 block text-xs truncate">
-                  {activeItem.constanteNome || activeItem.material || 'BRONZE'}
+              <div>
+                <span className="font-bold text-gray-600 block text-[10px]">MATERIAL:</span>
+                <span id="etiq-material" className="font-extrabold uppercase text-sm text-blue-950 block truncate">
+                  {activeItem.constanteNome || activeItem.material || 'BRONZE TM-23'}
                 </span>
-              </p>
+              </div>
 
-              <p style={{ margin: '1px 0' }}>
-                <strong className="text-[9px] text-slate-500 uppercase block font-bold">MEDIDA:</strong>
-                <span id="etiq-medida" className="font-mono font-bold text-slate-800 block text-xs">
-                  {formatarMedidasLimpa(activeItem)}
+              <div>
+                <span className="font-bold text-gray-600 block text-[10px]">MEDIDA:</span>
+                <span id="etiq-medida" className="font-bold block text-[11.5px] font-mono">
+                  {formatarMedidasLimpa(activeItem) || 'Ø 50 x 200 mm'}
                 </span>
-              </p>
+              </div>
 
-              <p style={{ margin: '1px 0' }}>
-                <strong className="text-[9px] text-slate-500 uppercase block font-bold">QTD:</strong>
-                <span id="etiq-qtd" className="font-mono font-black text-xs text-slate-900">
-                  {activeItem.qtd || activeItem.quantity || 1} PÇ
+              <div>
+                <span className="font-bold text-gray-600 block text-[10px]">QTD:</span>
+                <span id="etiq-qtd" className="font-black text-sm">
+                  {activeItem.qtd || activeItem.quantity || 1} PC
                 </span>
-              </p>
-            </div>
+              </div>
 
-            {/* QUADRO INTELIGENTE DA FOTO DO DESENHO */}
-            <div 
-              className="etiqueta-foto-box w-28 h-28 border border-dashed border-black rounded flex items-center justify-center bg-slate-50 overflow-hidden shrink-0 shadow-inner"
-              id="box-foto-etiqueta"
-            >
-              {drawingPhoto ? (
-                <img 
-                  id="img-desenho-etiqueta" 
-                  src={drawingPhoto} 
-                  alt="Desenho Técnico" 
-                  className="w-full h-full object-contain p-1"
-                />
-              ) : (
-                <span id="sem-foto-msg" style={{ fontSize: '6.5pt', color: '#888' }} className="font-bold tracking-wider text-center p-1">
-                  SEM DESENHO
-                </span>
+              {/* Campo de Observação */}
+              {(activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations) && (
+                <div className="pt-1">
+                  <span className="font-bold text-gray-600 block text-[10px]">OBSERVAÇÃO:</span>
+                  <span id="etiq-obs" className="font-semibold text-[11px] block text-gray-800 italic leading-snug">
+                    {activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations}
+                  </span>
+                </div>
               )}
             </div>
 
+            {/* Coluna Direita - Desenho Técnico Nítido */}
+            <div 
+              id="box-foto-etiqueta"
+              className="etiqueta-foto-box col-span-5 border-2 border-dashed border-gray-400 p-1 rounded flex items-center justify-center min-h-[110px] bg-slate-50 overflow-hidden"
+            >
+              {drawingPhoto ? (
+                <img 
+                  id="img-desenho-etiqueta"
+                  src={drawingPhoto} 
+                  alt="Desenho Peça" 
+                  className="desenho-tecnico-img max-h-[100px] w-auto object-contain print:contrast-[250%] print:brightness-90"
+                  style={{ filter: 'contrast(200%) brightness(85%)' }}
+                />
+              ) : (
+                <span id="sem-foto-msg" className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-wide">
+                  CORTE / USINAGEM CNC
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Item selector pills if quote has multiple items */}
           {currentQuote.items.length > 1 && (
-            <div className="btn-no-print pt-1 pb-1 flex items-center gap-1 overflow-x-auto">
-              <span className="text-[9px] text-slate-400">Peça:</span>
+            <div className="btn-no-print pt-1 pb-2 mb-2 flex items-center gap-1 overflow-x-auto border-t border-slate-200">
+              <span className="text-[9px] text-slate-400 font-bold">Peça:</span>
               {currentQuote.items.map((it, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedItemIndex(idx)}
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer ${
-                    selectedItemIndex === idx ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition-all ${
+                    selectedItemIndex === idx ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                   }`}
                 >
                   #{idx + 1}
@@ -1108,10 +1230,45 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
             </div>
           )}
 
-          {/* Footer */}
-          <div style={{ borderTop: '1px solid #000', fontSize: '6.5pt', textAlign: 'center', paddingTop: '2px' }} className="font-bold tracking-wider text-slate-700 uppercase">
-            Identificação de Peça / Usicorte Metais
+          {/* Rodapé Interno */}
+          <div className="etiqueta-footer pt-2 border-t border-black text-center mt-auto">
+            <span className="site-url text-[10px] font-bold tracking-widest text-black uppercase block">
+              www.usicortemetais.com.br
+            </span>
           </div>
+        </div>
+
+        {/* ===================================================
+             PROPOSTA 4: RELATÓRIO / PROPOSTA COMERCIAL (4 COLUNAS RESPONSIVA)
+             =================================================== */}
+        <div 
+          id="doc-proposta-resumida" 
+          className={`documento-modelo secao-proposta-resumida mx-auto ${
+            activeModel === 'proposta-resumida' ? 'block' : 'hidden'
+          }`}
+        >
+          <QuotePrintView 
+            quote={{
+              id: currentQuote.quoteNumber || currentQuote.id || 'COT-2026-3169',
+              quoteNumber: currentQuote.quoteNumber || currentQuote.id || 'COT-2026-3169',
+              date: currentQuote.date || new Date().toLocaleDateString('pt-BR'),
+              clientName: selectedClientName || currentQuote.clientName || 'BRASIL TECNOLOGIAS LTDA',
+              paymentTerms: currentQuote.paymentTerms || 'À Vista / Pix (3% Desc.)',
+              validityDays: currentQuote.validityDays || 10,
+              deliveryTerms: 'A combinar / Imediato',
+              observations: currentQuote.observations,
+              totalWeightKg: currentQuote.totalWeightKg || (currentQuote.items ? currentQuote.items.reduce((acc, it) => acc + (it.totalWeightKg || 0), 0) : undefined),
+              totalDiscount: currentQuote.discount,
+              shippingCost: currentQuote.shipping,
+              grandTotal: currentQuote.grandTotal,
+              items: currentQuote.items.map(it => ({
+                material: it.constanteNome || it.constantName || it.material || 'MATERIAL',
+                dimensions: formatarMedidasLimpa(it) || 'Ø 50 x 200 mm',
+                description: it.descricao || it.description || 'Corte / Usinagem Industrial',
+                info: it.observacao || it.notes || it.info || '-'
+              }))
+            }}
+          />
         </div>
 
       </div>

@@ -4,6 +4,12 @@
    1. CSS DE IMPRESSÃO E LAYOUTS (USICORTE METAIS)
    =================================================== */
 @media print {
+  /* 0. Remove todas as margens padrão de página da impressora */
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
   /* 1. Oculta apenas as partes desnecessárias (menus, sidebars, cabeçalhos, botões, etc.) */
   .no-print, 
   .btn-no-print, 
@@ -129,7 +135,7 @@
   }
 
   /* ---------------------------------------------------
-     MODELO 3: ETIQUETA CUPOM 80x80mm
+     MODELO 3: ETIQUETA CUPOM 80x80mm (MAXIMIZADA)
      Imprime APENAS a Etiqueta de Identificação da Peça.
      --------------------------------------------------- */
   .secao-etiqueta,
@@ -141,10 +147,10 @@
     max-width: 80mm !important;
     height: 80mm !important;
     max-height: 80mm !important;
-    padding: 3mm !important;
+    padding: 2mm 2.5mm !important;
     box-sizing: border-box !important;
-    border: 1px solid #000 !important;
-    font-family: Arial, sans-serif !important;
+    border: 1.5px solid #000 !important;
+    font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     background: #fff !important;
     color: #000 !important;
     margin: 0 auto !important;
@@ -158,14 +164,36 @@
 
   .etiqueta-header {
     border-bottom: 1px solid #000 !important;
-    padding-bottom: 1.5mm !important;
+    padding-bottom: 1mm !important;
     text-align: center !important;
+  }
+
+  .etiqueta-header strong,
+  .etiqueta-header h2 {
+    font-size: 11pt !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.5px !important;
+    line-height: 1.1 !important;
+    color: #000 !important;
+    margin: 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .etiqueta-header span,
+  .etiqueta-header p {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+    margin: 0.5mm 0 0 0 !important;
   }
 
   .etiqueta-corpo {
     display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    justify-content: space-between !important;
     gap: 2mm !important;
-    margin-top: 2mm !important;
+    margin: 1mm 0 !important;
     flex: 1 !important;
     min-height: 0 !important;
   }
@@ -177,6 +205,14 @@
     word-wrap: break-word !important;
     word-break: break-word !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-around !important;
+  }
+
+  .etiqueta-dados p {
+    margin: 0.3mm 0 !important;
+    line-height: 1.15 !important;
   }
 
   .lbl-cliente-nome {
@@ -186,26 +222,77 @@
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     line-height: 1.1 !important;
-    font-size: 7pt !important;
+    font-size: 7.5pt !important;
     font-weight: bold !important;
   }
 
   .etiqueta-foto-box {
-    width: 30mm !important;
-    height: 30mm !important;
-    min-width: 30mm !important;
+    width: 32mm !important;
+    height: 32mm !important;
+    min-width: 32mm !important;
+    max-width: 32mm !important;
+    max-height: 32mm !important;
     border: 1px dashed #000 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: #f9f9f9 !important;
+    background: #fbfbfb !important;
     overflow: hidden !important;
+    margin: auto 0 !important;
   }
 
   .etiqueta-foto-box img {
     max-width: 100% !important;
     max-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
     object-fit: contain !important;
+  }
+
+  /* FORÇAR NITIDEZ E CONTRASTE MÁXIMO DO DESENHO TÉCNICO NA IMPRESSÃO */
+  .desenho-tecnico-img,
+  .etiqueta-foto-box img,
+  #img-desenho-etiqueta,
+  .box-foto-desenho img,
+  #box-foto-etiqueta img {
+    filter: contrast(300%) grayscale(100%) drop-shadow(0px 0px 0.5px #000) !important;
+    image-rendering: -webkit-optimize-contrast !important;
+    image-rendering: crisp-edges !important;
+    image-rendering: pixelated !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* AJUSTE DE TRAÇO PARA DESENHOS EM SVG INLINE NA IMPRESSÃO */
+  svg.desenho-tecnico-svg path, 
+  svg.desenho-tecnico-svg line, 
+  svg.desenho-tecnico-svg circle,
+  svg.desenho-tecnico-svg polyline,
+  svg.desenho-tecnico-svg polygon,
+  svg.desenho-tecnico-svg rect,
+  .etiqueta-foto-box svg path,
+  .etiqueta-foto-box svg line,
+  .etiqueta-foto-box svg circle,
+  .secao-etiqueta svg path,
+  .secao-etiqueta svg line,
+  .secao-etiqueta svg circle {
+    stroke: #000000 !important;
+    stroke-width: 1.5px !important;
+    vector-effect: non-scaling-stroke !important;
+  }
+
+  .etiqueta-footer {
+    border-top: 1px solid #000 !important;
+    padding-top: 1mm !important;
+    text-align: center !important;
+  }
+
+  .etiqueta-footer .site-url {
+    font-size: 8pt !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px !important;
+    color: #000 !important;
+    display: block !important;
   }
 
   /* Ajustes de corpo por modo */
@@ -311,6 +398,9 @@
 .tabela-container {
   max-height: 480px;
   overflow-y: auto;
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid var(--border-color, #334155);
   border-radius: 8px;
   background: #fff; /* Fundo claro para legibilidade estilo tabela técnica */
@@ -548,5 +638,19 @@
   color: #fff;
   border-color: var(--usicorte-red);
 }
+
+/* ===================================================
+   NITIDEZ E CONTRASTE DE DESENHOS TÉCNICOS (TELA)
+   =================================================== */
+.desenho-tecnico-img,
+.etiqueta-foto-box img,
+#img-desenho-etiqueta,
+.box-foto-desenho img {
+  filter: contrast(200%) brightness(80%);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
 
 

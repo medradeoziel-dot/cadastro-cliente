@@ -43,6 +43,80 @@ export function parseNumberBR(input: string | number): number {
 }
 
 /**
+ * Converte uma string de entrada (em milímetros, decimais ou frações de polegada)
+ * para o valor numérico equivalente em milímetros.
+ * 
+ * Exemplos de entradas aceitas:
+ * - "32"       -> 32 mm
+ * - "12.7"     -> 12.7 mm
+ * - "1/2"      -> 12.7 mm
+ * - "1/2\""    -> 12.7 mm
+ * - "1.1/2"    -> 38.1 mm
+ * - "1 1/2"    -> 38.1 mm
+ * - "3/8 pol"  -> 9.525 mm
+ */
+export function parseDimensionToMm(input: string | number | undefined | null): number {
+  if (input === undefined || input === null) {
+    return 0;
+  }
+
+  if (typeof input === 'number') {
+    return isNaN(input) ? 0 : input;
+  }
+
+  if (typeof input !== 'string') {
+    return 0;
+  }
+
+  // Limpa o texto: remove aspas de polegada ("), a palavra 'pol', 'in', 'mm', 'ø', espaços extras nas pontas
+  let cleanInput = input
+    .replace(/["'”’]|pol|in|mm|ø/gi, '')
+    .replace(',', '.')
+    .trim();
+
+  if (!cleanInput) return 0;
+
+  // 1. Caso de fração mista com espaço (Ex: "1 1/2")
+  if (cleanInput.includes(' ')) {
+    const parts = cleanInput.split(/\s+/);
+    if (parts.length === 2 && parts[1].includes('/')) {
+      const whole = parseFloat(parts[0]);
+      const [num, den] = parts[1].split('/').map(Number);
+      if (!isNaN(whole) && !isNaN(num) && !isNaN(den) && den !== 0) {
+        return (whole + num / den) * 25.4;
+      }
+    }
+  }
+
+  // 2. Caso de fração mista com ponto (Ex: "1.1/2")
+  if (cleanInput.includes('.')) {
+    const parts = cleanInput.split('.');
+    if (parts.length === 2 && parts[1].includes('/')) {
+      const whole = parseFloat(parts[0]);
+      const [num, den] = parts[1].split('/').map(Number);
+      if (!isNaN(whole) && !isNaN(num) && !isNaN(den) && den !== 0) {
+        return (whole + num / den) * 25.4;
+      }
+    }
+  }
+
+  // 3. Caso de fração simples (Ex: "1/2" ou "3/8")
+  if (cleanInput.includes('/')) {
+    const [num, den] = cleanInput.split('/').map(Number);
+    if (!isNaN(num) && !isNaN(den) && den !== 0) {
+      return (num / den) * 25.4;
+    }
+  }
+
+  // 4. Se for apenas um número decimal/inteiro normal
+  const parsedValue = parseFloat(cleanInput);
+  if (isNaN(parsedValue)) return 0;
+
+  // Se o usuário digitou apenas um número decimal e você quer tratar como mm diretamente:
+  return parsedValue;
+}
+
+/**
  * Normaliza a constante informada:
  * - Se for '0.00785' ou 0.00785 (< 0.1), mantém o valor diretamente.
  * - Se for informada como 7.85 ou 6.17 (>= 0.1), divide por 1000 para converter para 0.00785 ou 0.00617.
@@ -755,6 +829,8 @@ export function parseDiameterOrThicknessMm(...inputs: (string | undefined | null
     if (input) {
       const val = findInPresets(input);
       if (val !== null && val > 0) return val;
+      const mmFallback = parseDimensionToMm(input);
+      if (mmFallback > 0) return mmFallback;
     }
   }
 

@@ -7,6 +7,7 @@ import {
   formatarMedidasLimpa,
   renderizarTabelaRelatorio,
   parseNumberBR, 
+  parseDimensionToMm,
   normalizeConstant,
   calculateItemSubtotal, 
   calculateItemWeightKg,
@@ -327,8 +328,8 @@ export default function SalesModule({
   const parsedDims = parseDimensionStrings(itemWidthLength, itemDiameter, itemThickness);
   const effectiveDiameterMm = parseDiameterOrThicknessMm(itemDiameter, itemThickness);
   const effectiveThicknessMm = parseDiameterOrThicknessMm(itemThickness, itemDiameter);
-  const effectiveWidthMm = parseFloat(itemWidthMm) || parsedDims.parsedWidthMm || 0;
-  const effectiveLengthMm = parseFloat(itemLengthMm) || parsedDims.parsedLengthMm || 0;
+  const effectiveWidthMm = parseDimensionToMm(itemWidthMm) || parsedDims.parsedWidthMm || 0;
+  const effectiveLengthMm = parseDimensionToMm(itemLengthMm) || parsedDims.parsedLengthMm || 0;
 
   const { unitWeightKg: currentFormUnitWeightKg, totalWeightKg: currentFormTotalWeightKg } = calculateItemWeightKg({
     geometryType: itemGeometryType,
@@ -366,8 +367,8 @@ export default function SalesModule({
     const k = normalizeConstant(constantStr);
     const parsedThick = parseDiameterOrThicknessMm(thicknessStr, diameterStr);
     const parsedDia = parseDiameterOrThicknessMm(diameterStr, thicknessStr);
-    const wMm = parseFloat(widthMmStr) || 0;
-    const lMm = parseFloat(lengthMmStr) || 0;
+    const wMm = parseDimensionToMm(widthMmStr) || 0;
+    const lMm = parseDimensionToMm(lengthMmStr) || 0;
 
     const unitPrice = calculateItemUnitPrice({
       geometryType: geom,

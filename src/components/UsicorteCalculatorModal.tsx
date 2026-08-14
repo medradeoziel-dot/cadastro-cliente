@@ -16,6 +16,7 @@ import {
   tabelaConstantes, 
   calculateItemWeightKg, 
   parseNumberBR, 
+  parseDimensionToMm,
   TabelaConstanteItem 
 } from '../utils/calculator';
 
@@ -115,10 +116,10 @@ export default function UsicorteCalculatorModal({
   const kConst = selectedMat ? selectedMat.k : 0.00785;
   const tipoMat = selectedMat ? selectedMat.tipo : tipo;
 
-  const diaNum = parseNumberBR(diametro);
-  const espNum = parseNumberBR(espessura);
-  const largNum = parseNumberBR(largura);
-  const compNum = parseNumberBR(comprimento);
+  const diaNum = parseDimensionToMm(diametro);
+  const espNum = parseDimensionToMm(espessura);
+  const largNum = parseDimensionToMm(largura);
+  const compNum = parseDimensionToMm(comprimento);
   const priceKgNum = parseNumberBR(precoKg);
   const qtdNum = Math.max(1, parseNumberBR(quantidade) || 1);
 
@@ -400,12 +401,19 @@ export default function UsicorteCalculatorModal({
             
             {/* Diâmetro */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-medium">
-                {tipoMat === 'bucha' ? 'Diâmetro Ext. (Ø)' : 'Diâmetro (Ø)'}
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs text-gray-400 font-medium">
+                  {tipoMat === 'bucha' ? 'Diâmetro Ext. (Ø)' : 'Diâmetro (Ø)'}
+                </label>
+                {diaNum > 0 && diametro && (diametro.includes('/') || diametro.includes('"') || diametro.toLowerCase().includes('pol')) && (
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/70 border border-emerald-700/50 px-1.5 py-0.2 rounded">
+                    {diaNum.toFixed(2).replace(/\.?0+$/, '')} mm
+                  </span>
+                )}
+              </div>
               <input 
                 ref={diametroRef}
-                type="number" 
+                type="text" 
                 tabIndex={2} 
                 disabled={tipoMat === 'chapa'}
                 value={diametro}
@@ -418,7 +426,7 @@ export default function UsicorteCalculatorModal({
                     else focusNextField(comprimentoRef);
                   }
                 }}
-                placeholder="0" 
+                placeholder="Ex: 32 ou 1.1/2" 
                 className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white focus:outline-hidden focus:border-blue-500 font-bold disabled:opacity-30 disabled:cursor-not-allowed"
               />
             </div>
@@ -429,19 +437,25 @@ export default function UsicorteCalculatorModal({
                 <label className="block text-xs text-gray-400 font-medium">
                   {tipoMat === 'bucha' ? 'Diâmetro Int. (Ø)' : 'Espessura (mm)'}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowBitolasModal(!showBitolasModal)}
-                  className="text-[10px] text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
-                >
-                  田 Bitolas
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {espNum > 0 && espessura && (espessura.includes('/') || espessura.includes('"') || espessura.toLowerCase().includes('pol')) && (
+                    <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/70 border border-emerald-700/50 px-1.5 py-0.2 rounded">
+                      {espNum.toFixed(2).replace(/\.?0+$/, '')} mm
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowBitolasModal(!showBitolasModal)}
+                    className="text-[10px] text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    田 Bitolas
+                  </button>
+                </div>
               </div>
               <input 
                 ref={espessuraRef}
-                type="number" 
+                type="text" 
                 tabIndex={3} 
-                step="0.1" 
                 disabled={tipoMat === 'macico'}
                 value={espessura}
                 onChange={(e) => setEspessura(e.target.value)}
@@ -453,7 +467,7 @@ export default function UsicorteCalculatorModal({
                     else focusNextField(comprimentoRef);
                   }
                 }}
-                placeholder="0" 
+                placeholder="Ex: 12.7 ou 1/2" 
                 className="w-full bg-[#131f37] border border-gray-700 rounded-lg p-2.5 text-white focus:outline-hidden focus:border-blue-500 font-bold disabled:opacity-30 disabled:cursor-not-allowed"
               />
 
@@ -479,10 +493,17 @@ export default function UsicorteCalculatorModal({
 
             {/* Largura */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-medium">Largura (mm)</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs text-gray-400 font-medium">Largura (mm)</label>
+                {largNum > 0 && largura && (largura.includes('/') || largura.includes('"') || largura.toLowerCase().includes('pol')) && (
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/70 border border-emerald-700/50 px-1.5 py-0.2 rounded">
+                    {largNum.toFixed(2).replace(/\.?0+$/, '')} mm
+                  </span>
+                )}
+              </div>
               <input 
                 ref={larguraRef}
-                type="number" 
+                type="text" 
                 tabIndex={4} 
                 disabled={tipoMat !== 'chapa'}
                 value={largura}
@@ -501,10 +522,17 @@ export default function UsicorteCalculatorModal({
 
             {/* Comprimento */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-medium">Comprimento (mm)</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs text-gray-400 font-medium">Comprimento (mm)</label>
+                {compNum > 0 && comprimento && (comprimento.includes('/') || comprimento.includes('"') || comprimento.toLowerCase().includes('pol')) && (
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/70 border border-emerald-700/50 px-1.5 py-0.2 rounded">
+                    {compNum.toFixed(2).replace(/\.?0+$/, '')} mm
+                  </span>
+                )}
+              </div>
               <input 
                 ref={comprimentoRef}
-                type="number" 
+                type="text" 
                 tabIndex={5} 
                 value={comprimento}
                 onChange={(e) => setComprimento(e.target.value)}
