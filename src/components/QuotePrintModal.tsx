@@ -18,7 +18,7 @@ export default function QuotePrintModal({ quote, onClose }: QuotePrintModalProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden print:max-h-none print:shadow-none print:border-none print:w-full">
+      <div nomeDaClasse="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-y-auto overflow-x-hidden min-w-0 print:max-h-none print:shadow-none print:border-none print:w-full">
         
         {/* Header Actions (hidden when printing) */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between print:hidden border-b border-slate-800">
