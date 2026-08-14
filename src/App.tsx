@@ -312,7 +312,7 @@ export default function App() {
     <div id="app-root" className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
       
       {/* 1. BARRA SUPERIOR (TOPBAR / MENU SUPERIOR RÁPIDO) */}
-      <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sm:px-5 z-20 shrink-0 sticky top-0">
+      <header className="topbar no-print h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sm:px-5 z-20 shrink-0 sticky top-0">
         
         <div className="flex items-center gap-3">
           {/* Hamburger button (Mobile only) */}
@@ -432,7 +432,7 @@ export default function App() {
         )}
 
         {/* Menu Lateral (Sidebar Adaptável) */}
-        <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col p-3 gap-1 overflow-y-auto shrink-0 select-none z-40 transition-transform duration-300 ease-in-out ${
+        <aside className={`sidebar no-print fixed md:static inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col p-3 gap-1 overflow-y-auto shrink-0 select-none z-40 transition-transform duration-300 ease-in-out ${
           isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
         }`}>
           
@@ -861,7 +861,7 @@ export default function App() {
 
           {/* TELA 6: RELATÓRIOS & PROPOSTAS */}
           {currentScreen === 'relatorios' && (
-            <div className="space-y-6">
+            <div id="screen-relatorios" className="space-y-6">
               <ReportsModule 
                 currentQuote={currentQuote}
                 clients={clients}
@@ -892,7 +892,7 @@ export default function App() {
       </div>
 
       {/* 3. BARRA DE STATUS INFERIOR (FOOTER / STATUSBAR) */}
-      <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-5 text-[11px] text-slate-400 z-20 shrink-0 select-none">
+      <footer className="statusbar no-print h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-5 text-[11px] text-slate-400 z-20 shrink-0 select-none">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981] animate-pulse"></div>
           <span>Empresa: <strong className="text-slate-200">USICORTE METAIS EIRELI</strong></span>

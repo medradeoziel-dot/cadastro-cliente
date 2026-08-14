@@ -71,6 +71,19 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
 
   // Active document preview / print mode
   const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
+  const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
+  
+  // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      handleAfterPrint();
+    };
+  }, []);
   
   // Selected client for report (prioritizing Nome Fantasia)
   const [selectedClientName, setSelectedClientName] = useState<string>(() => currentQuote.clientName || 'CLIENTE BALCÃO');
@@ -228,25 +241,28 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     }
   };
 
-  // Alterna entre os modelos e ativa a caixa de impressão do navegador
-  const gerarEImprimir = (tipoProposta: PrintModelType) => {
-    setActiveModel(tipoProposta);
+  // Alterna entre os modelos e ativa a caixa de impressão do navegador com setTimeout
+  const gerarEImprimir = (tipoProposta: PrintModelType | 'pedido' | 'etiqueta' | 'proposta') => {
+    // Remove classes anteriores
+    document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
 
-    // Ajusta a largura se for a etiqueta de 80mm
-    if (tipoProposta === 'etiqueta-80') {
-      document.body.style.width = '80mm';
+    if (tipoProposta === 'pedido' || tipoProposta === 'A4-2vias') {
+      setPrintMode('pedido');
+      setActiveModel('A4-2vias');
+      document.body.classList.add('print-pedido');
+    } else if (tipoProposta === 'etiqueta' || tipoProposta === 'etiqueta-80') {
+      setPrintMode('etiqueta');
+      setActiveModel('etiqueta-80');
+      document.body.classList.add('print-etiqueta');
     } else {
-      document.body.style.width = '100%';
+      setPrintMode('proposta');
+      setActiveModel('A4-inteiro');
+      document.body.classList.add('print-proposta');
     }
 
-    // Give state a tick to render active model DOM, then trigger print
+    // Pequeno setTimeout antes do window.print() para dar tempo do React atualizar a tela antes de abrir a janela da impressora
     setTimeout(() => {
       window.print();
-      
-      // Restaura o tamanho do corpo do documento
-      setTimeout(() => {
-        document.body.style.width = '100%';
-      }, 1000);
     }, 150);
   };
 
@@ -545,7 +561,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
           {/* BOTÕES DAS PROPOSTAS DE IMPRESSÃO (AÇÕES INDEPENDENTES) */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
-              onClick={() => gerarEImprimir('A4-2vias')}
+              onClick={() => gerarEImprimir('pedido')}
               title="Imprime apenas a Via do Cliente e Via da Empresa/Produção em A4 (oculta a etiqueta da peça)"
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
                 activeModel === 'A4-2vias'
@@ -558,7 +574,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
             </button>
 
             <button
-              onClick={() => gerarEImprimir('etiqueta-80')}
+              onClick={() => gerarEImprimir('etiqueta')}
               title="Imprime apenas a Etiqueta de Identificação da Peça (oculta as vias do pedido em A4)"
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
                 activeModel === 'etiqueta-80'
@@ -571,7 +587,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
             </button>
 
             <button
-              onClick={() => gerarEImprimir('A4-inteiro')}
+              onClick={() => gerarEImprimir('proposta')}
               title="Imprime a Proposta Comercial completa em A4"
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
                 activeModel === 'A4-inteiro'
@@ -771,8 +787,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
              =================================================== */}
         <div 
           id="doc-A4-inteiro" 
-          className={`documento-modelo bg-white text-slate-900 p-8 rounded-xl shadow-2xl font-sans max-w-4xl mx-auto ${
-            activeModel === 'A4-inteiro' ? 'block' : 'hidden print:hidden'
+          className={`documento-modelo secao-proposta bg-white text-slate-900 p-8 rounded-xl shadow-2xl font-sans max-w-4xl mx-auto ${
+            activeModel === 'A4-inteiro' ? 'block' : 'hidden'
           }`}
           style={{ minHeight: '800px' }}
         >
@@ -888,8 +904,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
              =================================================== */}
         <div 
           id="doc-A4-2vias" 
-          className={`documento-modelo modelo-duas-vias bg-white text-slate-900 p-6 rounded-xl shadow-2xl max-w-4xl mx-auto font-sans ${
-            activeModel === 'A4-2vias' ? 'block' : 'hidden print:hidden'
+          className={`documento-modelo secao-pedido modelo-duas-vias bg-white text-slate-900 p-6 rounded-xl shadow-2xl max-w-4xl mx-auto font-sans ${
+            activeModel === 'A4-2vias' ? 'block' : 'hidden'
           }`}
           style={{ minHeight: '850px' }}
         >
@@ -1006,8 +1022,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
              =================================================== */}
         <div 
           id="doc-etiqueta-80" 
-          className={`documento-modelo modelo-etiqueta-80 bg-white text-slate-900 rounded-lg shadow-2xl mx-auto border border-black font-sans ${
-            activeModel === 'etiqueta-80' ? 'block' : 'hidden print:hidden'
+          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 bg-white text-slate-900 rounded-lg shadow-2xl mx-auto border border-black font-sans ${
+            activeModel === 'etiqueta-80' ? 'block' : 'hidden'
           }`}
           style={{ width: '300px', height: '300px', padding: '12px' }}
         >

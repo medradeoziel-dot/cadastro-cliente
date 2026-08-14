@@ -4,55 +4,65 @@
    1. CSS DE IMPRESSÃO E LAYOUTS (USICORTE METAIS)
    =================================================== */
 @media print {
-  /* Oculta menus, sidebars, barras de status e botões */
-  .topbar, .sidebar, .statusbar, .screen-header, .btn-no-print, header, aside, footer, nav, .filtros-bar, .login-overlay {
+  /* 1. Oculta apenas as partes desnecessárias (menus, sidebars, cabeçalhos, botões, etc.) */
+  .no-print, 
+  .btn-no-print, 
+  nav, 
+  aside, 
+  sidebar, 
+  header.topbar,
+  header.header-principal, 
+  .topbar, 
+  .sidebar, 
+  .statusbar, 
+  .screen-header, 
+  button, 
+  .filtros-bar, 
+  .login-overlay,
+  #sidebarOverlay,
+  footer {
     display: none !important;
   }
 
-  body, .app-body, .content-area, #app-root, main {
-    background: #fff !important;
-    color: #000 !important;
-    padding: 0 !important;
+  /* 2. Garante que o documento raiz e containers principais fiquem visíveis (NÃO escondem o documento) */
+  html, body, #root, #app-root, .app-body, main, .content-area, #container-impressao, #screen-relatorios {
+    background: #ffffff !important;
+    color: #000000 !important;
     margin: 0 !important;
+    padding: 0 !important;
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
-  }
-
-  .screen {
-    display: none !important;
-  }
-
-  #screen-relatorios {
     display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: #fff !important;
-  }
-
-  #container-impressao {
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
     box-shadow: none !important;
+    border: none !important;
+    position: static !important;
   }
 
-  /* REGRA GERAL DE OCULTAÇÃO DE MODELOS INATIVOS NAS IMPRESSÕES */
-  .hidden, 
-  .print\:hidden, 
-  [class*="hidden"],
-  .documento-modelo.hidden, 
-  .documento-modelo.print\:hidden {
-    display: none !important;
-  }
+  /* 3. Regras de exibição por Modo de Impressão */
+  /* Modo Pedido: oculta etiqueta e proposta, exibe pedido A4 */
+  body.print-pedido .secao-etiqueta { display: none !important; }
+  body.print-pedido .secao-proposta { display: none !important; }
+  body.print-pedido .secao-pedido { display: block !important; }
+
+  /* Modo Etiqueta: oculta pedido e proposta, exibe etiqueta 80x80 */
+  body.print-etiqueta .secao-pedido { display: none !important; }
+  body.print-etiqueta .secao-proposta { display: none !important; }
+  body.print-etiqueta .secao-etiqueta { display: flex !important; }
+
+  /* Modo Proposta: oculta etiqueta e pedido, exibe proposta A4 */
+  body.print-proposta .secao-etiqueta { display: none !important; }
+  body.print-proposta .secao-pedido { display: none !important; }
+  body.print-proposta .secao-proposta { display: block !important; }
 
   /* ---------------------------------------------------
      MODELO 1: PROPOSTA A4 INTEIRO
      --------------------------------------------------- */
-  #doc-A4-inteiro:not(.hidden):not(.print\:hidden) {
-    display: block !important;
+  .secao-proposta {
     width: 100% !important;
+    max-width: 100% !important;
     color: #000 !important;
     background: #fff !important;
     padding: 0 !important;
@@ -66,15 +76,15 @@
   /* ---------------------------------------------------
      MODELO 2: PEDIDO A4 DIVIDIDO AO MEIO (2 VIAS)
      Imprime APENAS a Via do Cliente e Via da Empresa/Produção.
-     Oculta Etiqueta de Identificação e outros documentos.
      --------------------------------------------------- */
-  .modelo-duas-vias:not(.hidden):not(.print\:hidden) {
+  .secao-pedido,
+  .modelo-duas-vias {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 270mm !important; /* Cabe em 1 única folha A4 sem folha em branco */
+    height: 270mm !important; /* Cabe em 1 única folha A4 */
     min-height: 0 !important;
     box-sizing: border-box !important;
     padding: 2mm !important;
@@ -121,9 +131,9 @@
   /* ---------------------------------------------------
      MODELO 3: ETIQUETA CUPOM 80x80mm
      Imprime APENAS a Etiqueta de Identificação da Peça.
-     Oculta as Vias do Pedido em A4.
      --------------------------------------------------- */
-  .modelo-etiqueta-80:not(.hidden):not(.print\:hidden) {
+  .secao-etiqueta,
+  .modelo-etiqueta-80 {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
@@ -198,8 +208,8 @@
     object-fit: contain !important;
   }
 
-  /* Regras dinâmicas por data-print-mode no body */
-  body[data-print-mode="etiqueta-80"] {
+  /* Ajustes de corpo por modo */
+  body.print-etiqueta {
     width: 80mm !important;
     max-width: 80mm !important;
     height: 80mm !important;
@@ -209,18 +219,16 @@
     overflow: hidden !important;
   }
 
-  body[data-print-mode="A4-2vias"],
-  body[data-print-mode="A4-inteiro"] {
+  body.print-pedido,
+  body.print-proposta {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
   /* Layout de Impressão Direta da Tabela de Consulta */
-  .filtros-bar { display: none !important; }
   .tabela-container { max-height: none !important; overflow: visible !important; border: none !important; }
   .tabela-consulta th, .tabela-consulta td { border: 1px solid #000 !important; }
-  .login-overlay { display: none !important; }
 }
 
 /* ===================================================
