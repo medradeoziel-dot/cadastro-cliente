@@ -105,7 +105,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
   }, [selectedItemIndex]);
-  const currentDrawingPhoto = drawingPhotos[selectedItemIndex] || SAMPLE_DRAWING_BASE64;
+  
   // Drawing photo for item/label
   const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
   
