@@ -112,35 +112,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     return () => window.removeEventListener("paste", handlePaste);
   }, [selectedItemIndex]);
   // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
-  // Salva a imagem colada exclusivamente no índice da peça selecionada (#1, #2, etc.)
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of items) {
-        if (item.type.includes("image")) {
-          const blob = item.getAsFile();
-          if (!blob) continue;
-
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64Image = event.target?.result as string;
-            setDrawingPhotos((prev) => ({
-              ...prev,
-              [selectedItemIndex]: base64Image,
-            }));
-            setPasteSuccess(true);
-            setTimeout(() => setPasteSuccess(false), 3000);
-          };
-          reader.readAsDataURL(blob);
-        }
-      }
-    };
-
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, [selectedItemIndex]);
+  
   
   // Drawing photo for item/label
   const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
@@ -171,14 +143,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
 
           const reader = new FileReader();
           reader.onload = (event) => {
-            const base64Image = event.target?.result as string;
-            setDrawingPhoto(base64Image);
-            setPasteSuccess(true);
-            setTimeout(() => setPasteSuccess(false), 3000);
-          };
-          reader.readAsDataURL(blob);
-        }
-      }
+            
     };
 
     window.addEventListener("paste", handlePaste);
