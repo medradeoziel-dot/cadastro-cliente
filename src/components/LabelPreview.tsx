@@ -1,4 +1,4 @@
-import type { ItemPedido, Cliente } from "@/lib/types";
+import type { ItemPedido, Cliente } from "../lib/types";
 
 interface LabelPreviewProps {
   pedidoId: string;
