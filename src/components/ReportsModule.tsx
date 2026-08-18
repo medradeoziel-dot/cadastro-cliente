@@ -10,11 +10,11 @@ import {
   ChevronDown,
   ImageIcon,
 } from "lucide-react";
-import { clientes, pedidosPorCliente, itensPorPedido } from "@/lib/mockData";
-import type { ViewType, ItemPedido } from "@/lib/types";
-import { useLocalStorage } from "@/lib/useLocalStorage";
-import LabelPreview from "@/components/LabelPreview";
-import A4Preview from "@/components/A4Preview";
+import { clientes, pedidosPorCliente, itensPorPedido } from "../lib/mockData";
+import type { ViewType, ItemPedido } from "../types";
+import { useLocalStorage } from "../lib/useLocalStorage";
+import LabelPreview from "./LabelPreview";
+import A4Preview from "./A4Preview";
 
 const viewOptions: { value: ViewType; label: string }[] = [
   { value: "a4-inteiro", label: "A4 Inteiro" },
