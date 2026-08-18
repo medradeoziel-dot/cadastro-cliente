@@ -74,23 +74,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   // Active document preview / print mode
   const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
   const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
-  // Linha 70:
-export default function ReportsModule({ currentQuote, clients = [], onNavigateToQuote }: ReportsModuleProps) {
-  const [activeTab, setActiveTab] = useState<'propostas' | 'consulta'>('propostas');
-  const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
-  const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
-
-  // ===> COLE O PRIMEIRO BLOCO AQUI (A PARTIR DA LINHA 77) <===
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
-  const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const currentPhoto = drawingPhotos[selectedItemIndex] || SAMPLE_DRAWING_BASE64;
-  const hasCustomPhoto = Boolean(drawingPhotos[selectedItemIndex]);
-
-  useEffect(() => {
-    // ...
-  }, [selectedItemIndex]);
+  
   // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
   useEffect(() => {
     const handleAfterPrint = () => {
