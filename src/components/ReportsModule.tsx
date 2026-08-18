@@ -1,1280 +1,372 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Quote, QuoteItem, Client } from '../types';
-import Logo from './Logo';
-import { QuotePrintView } from './QuotePrintView';
-import { 
-  formatCurrency, 
-  formatWeightKg, 
-  formatarMedidasLimpa 
-} from '../utils/calculator';
-import { 
-  FileText, 
-  Printer, 
-  Download, 
-  Calendar, 
-  Building, 
-  User, 
-  Scale, 
-  DollarSign, 
-  Layers, 
-  FileSpreadsheet,
-  Scissors,
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Printer,
   Tag,
-  Image as ImageIcon,
+  FileText,
+  Download,
   Upload,
   Trash2,
-  Eye,
-  CheckCircle2,
-  Search,
-  Filter,
-  CheckSquare,
-  Square,
-  Sparkles
-} from 'lucide-react';
+  Clipboard,
+  ChevronDown,
+  ImageIcon,
+} from "lucide-react";
+import { clientes, pedidosPorCliente, itensPorPedido } from "@/lib/mockData";
+import type { ViewType, ItemPedido } from "@/lib/types";
+import { useLocalStorage } from "@/lib/useLocalStorage";
+import LabelPreview from "@/components/LabelPreview";
+import A4Preview from "@/components/A4Preview";
 
-interface ReportsModuleProps {
-  currentQuote: Quote;
-  clients?: Client[];
-  onNavigateToQuote?: () => void;
-}
-
-type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80' | 'proposta-resumida';
-
-export interface ConsultaItem {
-  idVer: number;
-  data: string;
-  empresa: string;
-  contato: string;
-  produto: string;
-  medida: string;
-  descricao: string;
-  valor: string;
-  qtd: number;
-  unitario: number;
-  valorGeral: number;
-  cotacao: string;
-}
-
-// Dados de exemplo para o módulo de consulta
-const DADOS_CONSULTA_EXEMPLO: ConsultaItem[] = [
-  { idVer: 13942, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'NYLON REDONDO', medida: '60 x 780', descricao: 'NYLON', valor: 'R$ 90,00', qtd: 1, unitario: 238, valorGeral: 238, cotacao: '' },
-  { idVer: 13940, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'QUADRADO', medida: '1 1/4 x 110', descricao: 'TREFILADO SAE 1045', valor: 'R$ 35,00', qtd: 1, unitario: 30, valorGeral: 30, cotacao: '' },
-  { idVer: 13930, data: '12/08/2026', empresa: 'VCI METAIS', contato: 'Carlos', produto: 'CHAPA', medida: '1 1/2 x 79 x 155', descricao: 'RETANGULO', valor: 'R$ 22,00', qtd: 1, unitario: 81, valorGeral: 81, cotacao: '' },
-  { idVer: 13911, data: '12/08/2026', empresa: 'PORTEX', contato: 'Roberto', produto: 'AÇO REDONDO', medida: '4"1/2 x 40', descricao: 'LAMINADO SAE 4140', valor: 'R$ 28,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: 'COT 127' },
-  { idVer: 13897, data: '12/08/2026', empresa: 'IRMÃOS VICENTE', contato: 'João', produto: 'AÇO REDONDO', medida: '5" x 43', descricao: 'LAMINADO SAE 1045', valor: 'R$ 21,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: '' }
+const viewOptions: { value: ViewType; label: string }[] = [
+  { value: "a4-inteiro", label: "A4 Inteiro" },
+  { value: "proposta-4col", label: "Proposta 4 Colunas" },
+  { value: "a4-2vias", label: "A4 2 Vias" },
+  { value: "etiqueta-80x80", label: "Etiqueta 80×80" },
 ];
 
-// Sample technical blueprint drawing in base64 SVG
-const SAMPLE_DRAWING_BASE64 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%"><rect width="200" height="200" fill="%23f8fafc" stroke="%23cbd5e1" stroke-width="2"/><circle cx="100" cy="100" r="60" fill="none" stroke="%232563eb" stroke-width="2" stroke-dasharray="4,2"/><circle cx="100" cy="100" r="35" fill="%23dbeafe" stroke="%231e40af" stroke-width="2.5"/><line x1="20" y1="100" x2="180" y2="100" stroke="%23ef4444" stroke-width="1" stroke-dasharray="3,3"/><line x1="100" y1="20" x2="100" y2="180" stroke="%23ef4444" stroke-width="1" stroke-dasharray="3,3"/><circle cx="100" cy="100" r="3" fill="%23ef4444"/><text x="100" y="32" font-family="monospace" font-size="10" text-anchor="middle" font-weight="bold" fill="%231e293b">Ø 120 ±0.05</text><text x="100" y="104" font-family="monospace" font-size="9" text-anchor="middle" font-weight="bold" fill="%231e40af">Ø 70 mm</text><text x="100" y="188" font-family="sans-serif" font-size="8" text-anchor="middle" fill="%2364748b">CORTE / USINAGEM CNC</text></svg>`;
-
-export default function ReportsModule({ currentQuote, clients = [], onNavigateToQuote }: ReportsModuleProps) {
-  // Navigation tab: 'propostas' | 'consulta'
-  const [activeTab, setActiveTab] = useState<'propostas' | 'consulta'>('propostas');
-
-  // Active document preview / print mode
-  const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
-  const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
-  
-  // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
-  useEffect(() => {
-    const handleAfterPrint = () => {
-      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
-    };
-    window.addEventListener('afterprint', handleAfterPrint);
-    return () => {
-      window.removeEventListener('afterprint', handleAfterPrint);
-      handleAfterPrint();
-    };
-  }, []);
-  
-  // Selected client for report (prioritizing Nome Fantasia)
-  const [selectedClientName, setSelectedClientName] = useState<string>(() => currentQuote.clientName || 'CLIENTE BALCÃO');
-  
-  // Selected saved order/file
-  const [selectedOrderKey, setSelectedOrderKey] = useState<string>('CURRENT');
-  
-  // Drawing photo for item/label
-  const [drawingPhoto, setDrawingPhoto] = useState<string>(SAMPLE_DRAWING_BASE64);
-  
-  // Selected item index for individual label printing
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
-
-  // Status message for Ctrl+V paste area
-  const [pasteSuccess, setPasteSuccess] = useState<boolean>(false);
-
-  // States for Consulta Module
-  const [tipoFiltro, setTipoFiltro] = useState<'empresa' | 'cotacao' | 'contato' | 'produto' | 'codigo'>('empresa');
-  const [inputBusca, setInputBusca] = useState<string>('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+export default function Proposals() {
+  const [clienteId, setClienteId] = useLocalStorage<number>("clienteId", clientes[0].id);
+  const [pedidoId, setPedidoId] = useLocalStorage<string>("pedidoId", "");
+  const [viewType, setViewType] = useLocalStorage<ViewType>("viewType", "etiqueta-80x80");
+  const [pecaAtiva, setPecaAtiva] = useLocalStorage<number>("pecaAtiva", 1);
+  const [fotosPorPeca, setFotosPorPeca] = useLocalStorage<Record<number, string>>("fotosPorPeca", {});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pasteAreaRef = useRef<HTMLDivElement>(null);
 
-  // Combine current quote items with sample database entries
-  const allConsultaItems: ConsultaItem[] = useMemo(() => {
-    const currentItems: ConsultaItem[] = (currentQuote?.items || []).map((it, idx) => ({
-      idVer: 14000 + idx,
-      data: new Date().toLocaleDateString('pt-BR'),
-      empresa: selectedClientName || currentQuote.clientName || 'CLIENTE BALCÃO',
-      contato: currentQuote.contactPerson || 'Marcos',
-      produto: it.constanteNome || it.material || 'MATERIAL',
-      medida: formatarMedidasLimpa(it),
-      descricao: it.descricao || it.description || 'PEÇA USICORTE',
-      valor: formatCurrency(it.unitPrice || 0),
-      qtd: it.qtd || it.quantity || 1,
-      unitario: it.unitPrice || 0,
-      valorGeral: (it.unitPrice || 0) * (it.qtd || it.quantity || 1),
-      cotacao: currentQuote.quoteNumber || 'COT-00124'
-    }));
+  const pedidos = pedidosPorCliente[clienteId] ?? [];
+  const itens: ItemPedido[] = pedidoId ? (itensPorPedido[pedidoId] ?? []) : [];
+  const cliente = clientes.find((c) => c.id === clienteId) ?? null;
+  const pedido = pedidos.find((p) => p.id === pedidoId) ?? null;
 
-    return [...currentItems, ...DADOS_CONSULTA_EXEMPLO];
-  }, [currentQuote, selectedClientName]);
-
-  // Filter consulta data based on radio category and search term
-  const filteredConsultaItems = useMemo(() => {
-    const term = inputBusca.toLowerCase().trim();
-    if (!term) return allConsultaItems;
-
-    return allConsultaItems.filter(item => {
-      if (tipoFiltro === 'empresa') return item.empresa.toLowerCase().includes(term);
-      if (tipoFiltro === 'cotacao') return item.cotacao.toLowerCase().includes(term);
-      if (tipoFiltro === 'contato') return item.contato.toLowerCase().includes(term);
-      if (tipoFiltro === 'produto') return item.produto.toLowerCase().includes(term) || item.descricao.toLowerCase().includes(term);
-      if (tipoFiltro === 'codigo') return item.idVer.toString().includes(term);
-      return true;
-    });
-  }, [allConsultaItems, inputBusca, tipoFiltro]);
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(filteredConsultaItems.map(item => item.idVer));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleToggleSelect = (idVer: number) => {
-    setSelectedIds(prev => 
-      prev.includes(idVer) ? prev.filter(id => id !== idVer) : [...prev, idVer]
-    );
-  };
-
-  const imprimirRelatorioGeral = (tipoRelatorio: string) => {
-    if (selectedIds.length === 0) {
-      alert(`Por favor, selecione ao menos um item da tabela para gerar o relatório de ${tipoRelatorio}.`);
-      return;
-    }
-
-    if (tipoRelatorio === 'ETIQUETAS') {
-      document.body.style.width = '80mm';
-    } else {
-      document.body.style.width = '100%';
-    }
-
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        document.body.style.width = '100%';
-      }, 1000);
-    }, 150);
-  };
-
-  // Sync client name if quote updates
   useEffect(() => {
-    if (currentQuote.clientName && selectedOrderKey === 'CURRENT') {
-      setSelectedClientName(currentQuote.clientName);
+    const pedidosDoCliente = pedidosPorCliente[clienteId] ?? [];
+    const pedidoValido = pedidosDoCliente.some((p) => p.id === pedidoId);
+    if (!pedidoValido) {
+      setPedidoId(pedidosDoCliente[0]?.id ?? "");
     }
-  }, [currentQuote.clientName, selectedOrderKey]);
+  }, [clienteId, pedidoId, setPedidoId]);
 
-  // Handle clipboard paste (Ctrl + V / PrintScreen / Win+Shift+S)
-  const processClipboardItems = (clipboardData: DataTransfer | null) => {
-    if (!clipboardData) return;
-    const items = clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.indexOf('image') !== -1) {
-        const blob = item.getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const base64 = e.target?.result as string;
-            setDrawingPhoto(base64);
-            setPasteSuccess(true);
-            setTimeout(() => setPasteSuccess(false), 4000);
-          };
-          reader.readAsDataURL(blob);
-        }
-        break;
-      }
-    }
-  };
+  useEffect(() => {
+    setPecaAtiva(itens[0]?.id ?? 1);
+  }, [pedidoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePasteEvent = (e: React.ClipboardEvent) => {
-    processClipboardItems(e.clipboardData);
-  };
+  const saveImage = useCallback(
+    (base64: string) => {
+      setFotosPorPeca((prev) => ({ ...prev, [pecaAtiva]: base64 }));
+    },
+    [pecaAtiva]
+  );
 
-  // Handle saved file / order switcher
-  const handleOrderChange = (key: string) => {
-    setSelectedOrderKey(key);
-    if (key === 'PED-00124') {
-      setSelectedClientName('USICORTE USINAGEM LTDA');
-      setDrawingPhoto(SAMPLE_DRAWING_BASE64);
-    } else if (key === 'PED-00125') {
-      setSelectedClientName('INDÚSTRIA METALÚRGICA SP');
-      setDrawingPhoto('');
-    } else {
-      setSelectedClientName(currentQuote.clientName || 'CLIENTE BALCÃO');
-      setDrawingPhoto(currentQuote.drawingImage || SAMPLE_DRAWING_BASE64);
-    }
-  };
-
-  // Handle drawing photo upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setDrawingPhoto(base64);
-        setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 4000);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Alterna entre os modelos e ativa a caixa de impressão do navegador com setTimeout
-  const gerarEImprimir = (tipoProposta: PrintModelType | 'pedido' | 'etiqueta' | 'proposta') => {
-    // Remove classes anteriores
-    document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
-
-    if (tipoProposta === 'pedido' || tipoProposta === 'A4-2vias') {
-      setPrintMode('pedido');
-      setActiveModel('A4-2vias');
-      document.body.classList.add('print-pedido');
-    } else if (tipoProposta === 'etiqueta' || tipoProposta === 'etiqueta-80') {
-      setPrintMode('etiqueta');
-      setActiveModel('etiqueta-80');
-      document.body.classList.add('print-etiqueta');
-    } else {
-      setPrintMode('proposta');
-      setActiveModel('A4-inteiro');
-      document.body.classList.add('print-proposta');
-    }
-
-    // Pequeno setTimeout antes do window.print() para dar tempo do React atualizar a tela antes de abrir a janela da impressora
-    setTimeout(() => {
-      window.print();
-    }, 150);
-  };
-
-  const totalItems = currentQuote.items.length;
-  const totalWeight = currentQuote.totalWeightKg || currentQuote.items.reduce((acc, item) => acc + (item.totalWeightKg || item.pesoTotal || 0), 0);
-  const subtotalValue = currentQuote.subtotalTotal || currentQuote.items.reduce((acc, item) => acc + (item.subtotal || (item.unitPrice * item.quantity)), 0);
-  const discountVal = currentQuote.discount || 0;
-  const shippingVal = currentQuote.shipping || 0;
-  const grandTotal = currentQuote.grandTotal || (subtotalValue - discountVal + shippingVal);
-
-  const activeItem: Partial<QuoteItem> = currentQuote.items[selectedItemIndex] || currentQuote.items[0] || {
-    material: 'BRONZE TM-23 REDONDO',
-    constanteNome: 'BRONZE TM-23 REDONDO',
-    measure: 'Ø 50 × 200 mm',
-    widthLength: '200 mm',
-    quantity: 1,
-    qtd: 1,
-    unitPrice: 185.00,
-    totalWeightKg: 3.450,
-    observacao: 'CONFORME DESENHO TÉCNICO',
-    description: 'BUCHA USINADA'
-  };
-
-  const handleExportJSON = () => {
-    const dataToExport = {
-      ...currentQuote,
-      clientName: selectedClientName,
-      drawingPhoto: drawingPhoto || null,
-      exportedAt: new Date().toISOString()
+  const readFileAsBase64 = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === "string") saveImage(result);
     };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `proposta_${currentQuote.quoteNumber || 'cotacao'}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) readFileAsBase64(file);
+          break;
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [saveImage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) readFileAsBase64(file);
+    e.target.value = "";
+  };
+
+  const handleRemoveFoto = () => {
+    setFotosPorPeca((prev) => {
+      const next = { ...prev };
+      delete next[pecaAtiva];
+      return next;
+    });
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleExportCSV = () => {
-    const headers = ["Material", "Medidas", "Descricao", "Informacoes", "Valor_Unitario", "Qtd", "Peso_Total_Kg", "Subtotal"];
-    const rows = currentQuote.items.map(item => [
-      `"${(item.constanteNome || item.constantName || item.material || 'MATERIAL').replace(/"/g, '""')}"`,
-      `"${formatarMedidasLimpa(item).replace(/"/g, '""')}"`,
-      `"${(item.descricao || item.description || '-').replace(/"/g, '""')}"`,
-      `"${(item.observacao || item.notes || item.info || '-').replace(/"/g, '""')}"`,
-      (item.valorUnitario !== undefined ? item.valorUnitario : item.unitPrice).toFixed(2),
-      item.qtd || item.quantity || 1,
-      (item.pesoTotal !== undefined ? item.pesoTotal : (item.totalWeightKg || 0)).toFixed(3),
-      (item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1))).toFixed(2)
+    if (!itens.length) return;
+    const header = ["Peça", "Descrição", "Material", "Medida", "Qtd", "Valor Unit.", "Total", "Observações"];
+    const rows = itens.map((i) => [
+      `#${i.id}`,
+      i.descricao,
+      i.material,
+      i.medida,
+      i.quantidade,
+      i.valorUnit.toFixed(2),
+      (i.valorUnit * i.quantidade).toFixed(2),
+      `"${i.observacoes}"`,
     ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `relatorio_itens_${currentQuote.quoteNumber || 'cotacao'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    const csv = [header, ...rows].map((r) => r.join(";")).join("\n");
+    downloadFile(csv, `${pedidoId}.csv`, "text/csv;charset=utf-8;");
   };
 
+  const handleExportJSON = () => {
+    if (!itens.length) return;
+    const data = {
+      pedido: pedidoId,
+      cliente: cliente,
+      itens: itens,
+    };
+    downloadFile(JSON.stringify(data, null, 2), `${pedidoId}.json`, "application/json");
+  };
+
+  const downloadFile = (content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const hasFotoAtiva = !!fotosPorPeca[pecaAtiva];
+
   return (
-    <div id="screen-relatorios" className="space-y-6">
-      
-      {/* TAB NAVIGATION: PROPOSTAS vs CONSULTA */}
-      <div className="btn-no-print flex items-center justify-between border-b border-slate-800 pb-3 gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('propostas')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'propostas'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-blue-300" />
-            <span>📄 Emissão de Propostas & Etiquetas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('consulta')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'consulta'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
-            }`}
-          >
-            <Search className="w-4 h-4 text-emerald-400" />
-            <span>🔍 Consulta & Relatório Geral</span>
-          </button>
-        </div>
-
-        {onNavigateToQuote && (
-          <button
-            onClick={onNavigateToQuote}
-            className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Voltar para Calculadora de Cotações</span>
-          </button>
-        )}
-      </div>
-
-      {/* ===================================================
-           MÓDULO DE CONSULTA E IMPRESSÃO DE RELATÓRIOS
-           =================================================== */}
-      {activeTab === 'consulta' && (
-        <div id="screen-consulta" className="space-y-4">
-          
-          {/* BARRA SUPERIOR COM BOTÕES E CAMPOS DE BUSCA */}
-          <div className="filtros-bar btn-no-print">
-            
-            {/* Botões de Impressão */}
-            <div className="botoes-impressao">
-              <button className="btn-print" onClick={() => imprimirRelatorioGeral('GERAL')}>
-                <span>🖨️</span> GERAL
-              </button>
-              <button className="btn-print" onClick={() => imprimirRelatorioGeral('EMPRESA')}>
-                <span>🏢</span> EMPRESA
-              </button>
-              <button className="btn-print" onClick={() => imprimirRelatorioGeral('PEDIDO')}>
-                <span>📋</span> PEDIDO
-              </button>
-              <button className="btn-print" onClick={() => imprimirRelatorioGeral('ETIQUETAS')}>
-                <span>🏷️</span> ETIQUETAS
-              </button>
-              <button className="btn-print" onClick={() => imprimirRelatorioGeral('CORTE')}>
-                <span>✂️</span> CORTE
-              </button>
-            </div>
-
-            {/* Filtros por Categoria e Campo de Texto */}
-            <div className="opcoes-pesquisa">
-              <label>
-                <input 
-                  type="radio" 
-                  name="tipoFiltro" 
-                  value="empresa" 
-                  checked={tipoFiltro === 'empresa'} 
-                  onChange={() => setTipoFiltro('empresa')} 
-                /> EMPRESA
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="tipoFiltro" 
-                  value="cotacao" 
-                  checked={tipoFiltro === 'cotacao'} 
-                  onChange={() => setTipoFiltro('cotacao')} 
-                /> COTAÇÃO
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="tipoFiltro" 
-                  value="contato" 
-                  checked={tipoFiltro === 'contato'} 
-                  onChange={() => setTipoFiltro('contato')} 
-                /> CONTATO
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="tipoFiltro" 
-                  value="produto" 
-                  checked={tipoFiltro === 'produto'} 
-                  onChange={() => setTipoFiltro('produto')} 
-                /> PRODUTO / DESCRIÇÃO
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="tipoFiltro" 
-                  value="codigo" 
-                  checked={tipoFiltro === 'codigo'} 
-                  onChange={() => setTipoFiltro('codigo')} 
-                /> CÓDIGO / ID
-              </label>
-
-              <input 
-                type="text" 
-                id="inputBusca" 
-                className="input-busca-avancada" 
-                placeholder="Digite para pesquisar..." 
-                value={inputBusca} 
-                onChange={(e) => setInputBusca(e.target.value)} 
-              />
-            </div>
-
-          </div>
-
-          {/* TABELA COM DADOS TÉCNICOS */}
-          <div className="tabela-container shadow-2xl">
-            <table className="tabela-consulta" id="tabelaDados">
-              <thead>
-                <tr>
-                  <th style={{ width: '30px', textAlign: 'center' }}>
-                    <input 
-                      type="checkbox" 
-                      id="checkTodos" 
-                      checked={filteredConsultaItems.length > 0 && selectedIds.length === filteredConsultaItems.length}
-                      onChange={(e) => handleSelectAll(e.target.checked)} 
-                    />
-                  </th>
-                  <th>IdVer</th>
-                  <th>Data</th>
-                  <th>Cliente / Empresa</th>
-                  <th>Contato</th>
-                  <th>Produto</th>
-                  <th>Medida</th>
-                  <th>Descrição</th>
-                  <th>Valor</th>
-                  <th>Qtd</th>
-                  <th>Unitário</th>
-                  <th>Valor Geral</th>
-                  <th>Cotação</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyConsulta">
-                {filteredConsultaItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="text-center py-6 text-slate-500 font-medium">
-                      Nenhum registro encontrado para os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredConsultaItems.map((item) => {
-                    const isSelected = selectedIds.includes(item.idVer);
-                    return (
-                      <tr 
-                        key={item.idVer} 
-                        className={isSelected ? 'linha-selecionada' : ''}
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.tagName !== 'INPUT') {
-                            handleToggleSelect(item.idVer);
-                          }
-                        }}
-                      >
-                        <td style={{ textAlign: 'center' }}>
-                          <input 
-                            type="checkbox" 
-                            className="chk-item" 
-                            value={item.idVer} 
-                            checked={isSelected}
-                            onChange={() => handleToggleSelect(item.idVer)} 
-                          />
-                        </td>
-                        <td><strong>{item.idVer}</strong></td>
-                        <td>{item.data}</td>
-                        <td><strong>{item.empresa}</strong></td>
-                        <td>{item.contato || '-'}</td>
-                        <td>{item.produto}</td>
-                        <td>{item.medida}</td>
-                        <td>{item.descricao}</td>
-                        <td>{item.valor}</td>
-                        <td>{item.qtd}</td>
-                        <td>R$ {item.unitario.toFixed(2)}</td>
-                        <td><strong>R$ {item.valorGeral.toFixed(2)}</strong></td>
-                        <td>{item.cotacao || '-'}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="btn-no-print text-xs text-slate-400 flex items-center justify-between pt-2">
-            <span>Mostrando {filteredConsultaItems.length} de {allConsultaItems.length} itens</span>
-            <span>{selectedIds.length} item(ns) selecionado(s) para impressão</span>
-          </div>
-
-        </div>
-      )}
-
-      {/* ===================================================
-           ABA 1: EMISSÃO DE PROPOSTAS & ETIQUETAS (PADRÃO)
-           =================================================== */}
-      {activeTab === 'propostas' && (
-        <>
-          {/* PAINEL DE CONTROLE E FILTROS (NÃO SAI NA IMPRESSÃO) */}
-          <div className="screen-header btn-no-print flex flex-col gap-5 bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl shadow-xl">
-        
-        {/* Top Header with title and 3 direct Print Action Buttons */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-400" />
-              Relatório e Emissão de Propostas
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Gere propostas oficiais completas em A4, pedidos de produção em 2 vias com linha de corte, ou etiquetas técnicas 80x80mm.
-            </p>
-          </div>
-
-          {/* BOTÕES DAS PROPOSTAS DE IMPRESSÃO (AÇÕES INDEPENDENTES) */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => gerarEImprimir('pedido')}
-              title="Imprime apenas a Via do Cliente e Via da Empresa/Produção em A4 (oculta a etiqueta da peça)"
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
-                activeModel === 'A4-2vias'
-                  ? 'bg-amber-600 text-white shadow-amber-600/30 ring-2 ring-amber-300'
-                  : 'bg-slate-800 hover:bg-amber-900/40 text-amber-200 border border-amber-500/40'
-              }`}
-            >
-              <Scissors className="w-4 h-4 text-amber-300" />
-              <span>📋 Imprimir Pedido (A4)</span>
-            </button>
-
-            <button
-              onClick={() => gerarEImprimir('etiqueta')}
-              title="Imprime apenas a Etiqueta de Identificação da Peça (oculta as vias do pedido em A4)"
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
-                activeModel === 'etiqueta-80'
-                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-300'
-                  : 'bg-slate-800 hover:bg-emerald-900/40 text-emerald-200 border border-emerald-500/40'
-              }`}
-            >
-              <Tag className="w-4 h-4 text-emerald-300" />
-              <span>🏷️ Imprimir Etiqueta da Peça</span>
-            </button>
-
-            <button
-              onClick={() => gerarEImprimir('proposta')}
-              title="Imprime a Proposta Comercial completa em A4"
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
-                activeModel === 'A4-inteiro'
-                  ? 'bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-blue-300'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-              }`}
-            >
-              <FileText className="w-4 h-4 text-blue-300" />
-              <span>📄 Imprimir Proposta (A4 Inteiro)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* SELEÇÃO DE EMPRESA E ARQUIVO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800 items-end">
-          
-          {/* SELEÇÃO DE CLIENTE COM NOME FANTASIA (Ponto 3) */}
-          <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5 flex items-center gap-1.5">
-              <Building className="w-3.5 h-3.5 text-blue-400" />
-              Selecione o Cliente (Nome Fantasia):
-            </label>
-            <select 
-              id="select-relatorio-cliente"
-              value={selectedClientName}
-              onChange={(e) => setSelectedClientName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 text-slate-100 border border-slate-700 rounded-lg text-xs focus:outline-hidden focus:border-blue-500 font-medium"
-            >
-              <option value="">-- SELECIONE O CLIENTE --</option>
-              <option value="CLIENTE BALCÃO">CLIENTE BALCÃO</option>
-              <option value="IGREJA PRIMOGÊNITOS" data-razao="IGREJA EVANGELICA IRMAOS PRIMOGENITOS">IGREJA PRIMOGÊNITOS (Fantasia)</option>
-              <option value="USICORTE METAIS" data-razao="USICORTE USINAGEM E MANUTENCAO EIRELI">USICORTE METAIS (Fantasia)</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.fantasyName || c.name} data-razao={c.name}>
-                  {c.fantasyName ? `${c.fantasyName} (Fantasia)` : `${c.name} (${c.type})`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 2. Puxar Arquivo / Pedido Salvo */}
-          <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-purple-400" />
-              Selecione o Pedido Salvo:
-            </label>
-            <select 
-              id="select-relatorio-arquivo"
-              value={selectedOrderKey}
-              onChange={(e) => handleOrderChange(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 text-slate-100 border border-slate-700 rounded-lg text-xs focus:outline-hidden focus:border-blue-500 font-mono"
-            >
-              <option value="CURRENT">{currentQuote.quoteNumber || 'COT-2026-0001'} (Cotação Atual)</option>
-              <option value="PED-00124">Pedido #00124 - 11/08/2026</option>
-              <option value="PED-00125">Pedido #00125 - 11/08/2026 (Sem Foto)</option>
-            </select>
-          </div>
-
-        </div>
-
-        {/* ÁREA PARA COLAR O PRINT SCREEN COM CTRL + V (Ponto 1) */}
-        <div className="pt-3 border-t border-slate-800/80">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
-              📸 Desenho Técnico (Copie o print com Win+Shift+S ou PrintScreen e cole abaixo):
-            </label>
-            {drawingPhoto && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDrawingPhoto('');
-                  setPasteSuccess(false);
-                }}
-                className="text-[11px] text-red-400 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                title="Remover Desenho"
+    <div className="flex flex-col h-full min-h-0">
+      <div className="bg-slate-800/60 border-b border-slate-700/60 px-6 py-4 space-y-4 flex-shrink-0">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col gap-1 min-w-[200px]">
+            <label className="text-slate-400 text-xs font-medium uppercase tracking-wider">Cliente</label>
+            <div className="relative">
+              <select
+                value={clienteId}
+                onChange={(e) => setClienteId(Number(e.target.value))}
+                className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 pr-8 appearance-none focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 cursor-pointer"
               >
-                <Trash2 className="w-3 h-3" />
-                <span>Remover Foto (Exibir SEM DESENHO)</span>
-              </button>
-            )}
-          </div>
-
-          <div
-            id="paste-area"
-            ref={pasteAreaRef}
-            tabIndex={0}
-            onPaste={handlePasteEvent}
-            onClick={() => pasteAreaRef.current?.focus()}
-            className={`p-3.5 border-2 border-dashed rounded-xl text-center cursor-pointer outline-hidden transition-all flex flex-col sm:flex-row items-center justify-between gap-3 ${
-              pasteSuccess
-                ? 'border-emerald-500 bg-emerald-950/20 text-emerald-300'
-                : 'border-blue-500/70 hover:border-blue-400 bg-blue-950/10 focus:bg-blue-950/20 text-slate-200'
-            }`}
-          >
-            <div className="flex items-center gap-2.5 text-xs text-left">
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">
-                <Upload className="w-4 h-4" />
-              </div>
-              <div>
-                <span id="paste-msg" className="block font-medium">
-                  {pasteSuccess ? (
-                    <strong className="text-emerald-400 font-bold">✅ Foto do print colada com sucesso!</strong>
-                  ) : (
-                    <>Clique aqui e pressione <strong className="text-blue-400 font-bold bg-blue-950 px-1.5 py-0.5 rounded border border-blue-800/60">Ctrl + V</strong> para colar a foto do print</>
-                  )}
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Ou clique em "Carregar Arquivo" para selecionar uma imagem do computador
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {drawingPhoto && (
-                <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900 overflow-hidden flex items-center justify-center shrink-0">
-                  <img 
-                    src={drawingPhoto} 
-                    alt="Miniatura" 
-                    className="desenho-tecnico-img w-full h-full object-contain"
-                  />
-                </div>
-              )}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleImageUpload} 
-                accept="image/*" 
-                className="hidden" 
-              />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Upload className="w-3.5 h-3.5 text-blue-400" />
-                <span>{drawingPhoto ? 'Alterar Arquivo' : 'Carregar Arquivo'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Action toolbar with visual model switchers and export buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-semibold">Visualizar na tela:</span>
-            <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-              <button
-                onClick={() => setActiveModel('A4-inteiro')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  activeModel === 'A4-inteiro' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                A4 Inteiro
-              </button>
-              <button
-                onClick={() => setActiveModel('proposta-resumida')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                  activeModel === 'proposta-resumida' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>Proposta 4 Colunas</span>
-              </button>
-              <button
-                onClick={() => setActiveModel('A4-2vias')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  activeModel === 'A4-2vias' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                A4 2 Vias
-              </button>
-              <button
-                onClick={() => setActiveModel('etiqueta-80')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  activeModel === 'etiqueta-80' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Etiqueta 80x80
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-              <span>CSV</span>
-            </button>
-
-            <button
-              onClick={handleExportJSON}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-purple-400" />
-              <span>JSON</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ===================================================
-           CONTAINER DE IMPRESSÃO (O QUE SAI NA IMPRESSORA E NA PRÉVIA)
-           =================================================== */}
-      <div id="container-impressao" className="bg-slate-900/60 p-2 sm:p-6 rounded-2xl border border-slate-800 w-full overflow-x-hidden">
-        
-        {/* ===================================================
-             PROPOSTA 1: RELATÓRIO A4 INTEIRO
-             =================================================== */}
-        <div 
-          id="doc-A4-inteiro" 
-          className={`documento-modelo secao-proposta bg-white text-slate-900 p-4 sm:p-8 rounded-xl shadow-2xl font-sans w-full max-w-4xl mx-auto overflow-x-hidden ${
-            activeModel === 'A4-inteiro' ? 'block' : 'hidden'
-          }`}
-          style={{ minHeight: '800px' }}
-        >
-          {/* Header */}
-          <div className="border-b-2 border-black pb-3 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <div className="logo-impressao mb-2" style={{ width: '180px' }}>
-                <Logo variant="light" className="w-[180px] h-auto" />
-              </div>
-              <p className="m-0 text-xs font-semibold text-slate-600 tracking-wide uppercase">Relatório / Proposta Comercial</p>
-            </div>
-            <div className="text-left sm:text-right text-xs space-y-0.5 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
-              <div><strong>PROPOSTA Nº:</strong> <span className="rel-numero font-mono font-bold text-blue-800">{currentQuote.quoteNumber || '00124'}</span></div>
-              <div><strong>DATA:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
-            </div>
-          </div>
-
-          {/* Client box */}
-          <div className="bg-slate-100 border border-slate-300 p-3 rounded-md mb-4 text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div>
-              <span className="font-bold text-slate-700">EMPRESA / CLIENTE:</span>{' '}
-              <strong className="lbl-cliente-nome text-slate-900 text-sm font-black uppercase break-words">{selectedClientName}</strong>
-            </div>
-            <div className="text-slate-600 font-mono">
-              Condições: <strong>{currentQuote.paymentTerms || 'À Vista / Pix'}</strong>
-            </div>
-          </div>
-
-          {/* 📱 MOBILE: Cards de Produtos (< 640px) */}
-          <div className="block sm:hidden space-y-3 mb-6 flex flex-col">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Itens da Proposta ({currentQuote.items.length})
-            </span>
-            {currentQuote.items.length === 0 ? (
-              <div className="py-6 text-center text-slate-500 italic text-xs bg-slate-50 rounded-lg border border-slate-200">
-                Nenhum item na cotação para exibição.
-              </div>
-            ) : (
-              currentQuote.items.map((item, idx) => {
-                const produtoMaterial = item.constanteNome || item.constantName || item.material || 'MATERIAL';
-                const medidasFormatadas = formatarMedidasLimpa(item);
-                const descricaoItem = item.descricao || item.description || '-';
-                const informacoesObs = item.observacao || item.notes || item.info || '-';
-                const valorUnitario = Number(item.valorUnitario !== undefined ? item.valorUnitario : (item.unitPrice || 0));
-                const qtd = Number(item.qtd !== undefined ? item.qtd : (item.quantity || 1));
-                const pesoTotal = Number(item.pesoTotal !== undefined ? item.pesoTotal : (item.totalWeightKg || 0));
-                const subtotal = Number(item.subtotal !== undefined ? item.subtotal : (valorUnitario * qtd));
-
-                return (
-                  <div key={item.id || idx} className="border border-slate-300 rounded-lg p-3 bg-white space-y-2 text-xs shadow-xs">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-1.5">
-                      <span className="text-[10px] text-slate-500 uppercase font-bold">Produto / Material</span>
-                      <strong className="font-bold text-slate-900 text-sm">{produtoMaterial}</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Medidas</span>
-                      <span className="font-mono text-slate-800 font-semibold">{medidasFormatadas}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Descrição</span>
-                      <span className="text-slate-700">{descricaoItem}</span>
-                    </div>
-
-                    {informacoesObs !== '-' && (
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold block">Informações</span>
-                        <span className="italic text-slate-600">{informacoesObs}</span>
-                      </div>
-                    )}
-
-                    <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
-                      <div>
-                        <span className="text-slate-500">Qtd: <strong>{qtd}</strong></span>
-                        <span className="mx-1.5 text-slate-300">|</span>
-                        <span className="text-slate-500">Peso: <strong>{formatWeightKg(pesoTotal, 3)}</strong></span>
-                      </div>
-                      <div className="font-bold text-slate-950 font-mono text-sm">
-                        {formatCurrency(subtotal)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* 🖥️ DESKTOP: 8-Column Table (>= 640px) */}
-          <table className="hidden sm:table w-full border-collapse text-xs mb-6" border={1} cellPadding={6}>
-            <thead>
-              <tr className="bg-slate-200 text-slate-900 font-bold uppercase text-[11px] border-b border-black">
-                <th className="text-left p-2">PRODUTO / MATERIAL</th>
-                <th className="text-center p-2">MEDIDAS</th>
-                <th className="text-left p-2">DESCRIÇÃO</th>
-                <th className="text-left p-2">INFORMAÇÕES</th>
-                <th className="text-right p-2">UNITÁRIO</th>
-                <th className="text-center p-2 w-12">QTD</th>
-                <th className="text-right p-2">PESO TOTAL</th>
-                <th className="text-right p-2">SUBTOTAL</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-a4-inteiro" className="divide-y divide-slate-300">
-              {currentQuote.items.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 italic">
-                    Nenhum item na cotação para exibição.
-                  </td>
-                </tr>
-              ) : (
-                currentQuote.items.map((item, idx) => {
-                  const produtoMaterial = item.constanteNome || item.constantName || item.material || 'MATERIAL';
-                  const medidasFormatadas = formatarMedidasLimpa(item);
-                  const descricaoItem = item.descricao || item.description || '-';
-                  const informacoesObs = item.observacao || item.notes || item.info || '-';
-                  const valorUnitario = Number(item.valorUnitario !== undefined ? item.valorUnitario : (item.unitPrice || 0));
-                  const qtd = Number(item.qtd !== undefined ? item.qtd : (item.quantity || 1));
-                  const pesoTotal = Number(item.pesoTotal !== undefined ? item.pesoTotal : (item.totalWeightKg || 0));
-                  const subtotal = Number(item.subtotal !== undefined ? item.subtotal : (valorUnitario * qtd));
-
-                  return (
-                    <tr key={item.id || idx} className="hover:bg-slate-50">
-                      <td className="text-left font-bold text-slate-900 p-2">{produtoMaterial}</td>
-                      <td className="text-center font-mono text-[11px] p-2">{medidasFormatadas}</td>
-                      <td className="text-left p-2 text-slate-800">{descricaoItem}</td>
-                      <td className="text-left p-2 text-slate-600 italic text-[10px]">{informacoesObs}</td>
-                      <td className="text-right font-mono p-2">{formatCurrency(valorUnitario)}</td>
-                      <td className="text-center font-bold font-mono p-2">{qtd}</td>
-                      <td className="text-right font-mono font-bold p-2 text-slate-900">{formatWeightKg(pesoTotal, 3)}</td>
-                      <td className="text-right font-mono font-bold p-2 text-slate-950">{formatCurrency(subtotal)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-
-          {/* Totals & Notes footer */}
-          <div className="border-t-2 border-black pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end text-xs gap-4">
-            <div className="space-y-1 text-slate-600 max-w-md w-full sm:w-auto">
-              <p>• Validade da proposta: <strong>{currentQuote.validityDays || 10} dias</strong></p>
-              <p>• Prazo de entrega: <strong>A combinar após aprovação</strong></p>
-              {currentQuote.observations && <p>• Obs: {currentQuote.observations}</p>}
-            </div>
-
-            <div className="text-left sm:text-right space-y-1 w-full sm:w-auto min-w-[220px] bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-lg sm:rounded-none border sm:border-0 border-slate-200">
-              <div className="flex justify-between text-slate-700">
-                <span>Peso Total Estimado:</span>
-                <strong className="font-mono">{formatWeightKg(totalWeight, 3)}</strong>
-              </div>
-              {discountVal > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Desconto:</span>
-                  <strong className="font-mono">- {formatCurrency(discountVal)}</strong>
-                </div>
-              )}
-              {shippingVal > 0 && (
-                <div className="flex justify-between text-slate-700">
-                  <span>Frete:</span>
-                  <strong className="font-mono">+ {formatCurrency(shippingVal)}</strong>
-                </div>
-              )}
-              <div className="flex justify-between text-base font-black border-t border-black pt-2 text-slate-950">
-                <span>VALOR TOTAL:</span>
-                <span className="font-mono text-blue-900">{formatCurrency(grandTotal)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ===================================================
-             PROPOSTA 2: PEDIDO A4 DIVIDIDO AO MEIO (2 VIAS)
-             =================================================== */}
-        <div 
-          id="doc-A4-2vias" 
-          className={`documento-modelo secao-pedido modelo-duas-vias bg-white text-slate-900 p-4 sm:p-6 rounded-xl shadow-2xl w-full max-w-4xl mx-auto font-sans overflow-x-hidden ${
-            activeModel === 'A4-2vias' ? 'block' : 'hidden'
-          }`}
-          style={{ minHeight: '850px' }}
-        >
-          
-          {/* VIA 1: CLIENTE */}
-          <div className="via-pedido border border-black p-3 sm:p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
-            <div>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black pb-2 mb-3 gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="logo-impressao" style={{ width: '130px' }}>
-                    <Logo variant="light" className="w-[130px] h-auto" />
-                  </div>
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">VIA DO CLIENTE</span>
-                </div>
-                <span className="text-xs">
-                  <strong>PEDIDO Nº:</strong> <span className="rel-numero font-mono font-bold">{currentQuote.quoteNumber || '00124'}</span>
-                </span>
-              </div>
-
-              <div className="text-xs mb-3 text-slate-700 flex flex-col sm:flex-row justify-between gap-1">
-                <div><strong>Cliente:</strong> <span className="lbl-cliente-nome font-bold uppercase">{selectedClientName}</span></div>
-                <div><strong>Data:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
-              </div>
-
-              {/* Mobile Cards Via 1 */}
-              <div className="block sm:hidden space-y-2 mb-3">
-                {currentQuote.items.map((item, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded p-2 text-xs bg-slate-50 space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span>{item.constanteNome || item.material || 'MATERIAL'}</span>
-                      <span className="font-mono">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 flex justify-between">
-                      <span>Medida: {formatarMedidasLimpa(item)}</span>
-                      <span>Qtd: {item.qtd || item.quantity || 1}</span>
-                    </div>
-                  </div>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
                 ))}
-              </div>
-
-              {/* Desktop Table Via 1 */}
-              <table className="hidden sm:table w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
-                <thead>
-                  <tr className="bg-slate-100 font-bold text-[10px] uppercase">
-                    <th className="text-left p-1.5">MATERIAL</th>
-                    <th className="text-center p-1.5">MEDIDAS</th>
-                    <th className="text-center p-1.5 w-12">QTD</th>
-                    <th className="text-right p-1.5">PESO TOTAL</th>
-                    <th className="text-right p-1.5">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="tbody-resumido divide-y divide-slate-200">
-                  {currentQuote.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="p-1.5 font-bold text-slate-900">{item.constanteNome || item.material || 'MATERIAL'}</td>
-                      <td className="p-1.5 text-center font-mono text-[10px]">{formatarMedidasLimpa(item)}</td>
-                      <td className="p-1.5 text-center font-mono font-bold">{item.qtd || item.quantity || 1}</td>
-                      <td className="p-1.5 text-right font-mono">{formatWeightKg(item.pesoTotal || item.totalWeightKg || 0, 3)}</td>
-                      <td className="p-1.5 text-right font-mono font-bold">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs border-t border-black pt-2 mt-2 gap-2">
-              <span className="text-slate-600">Assinatura Cliente: ___________________________________</span>
-              <strong className="text-sm font-mono text-slate-950">TOTAL: <span className="lbl-valor-total">{formatCurrency(grandTotal)}</span></strong>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
-          {/* LINHA DE CORTE */}
-          <div className="linha-corte my-6 border-t-2 border-dashed border-black text-center relative">
-            <span className="bg-white px-3 text-[11px] font-bold text-slate-900 relative -top-3">
-              ✂️ CORTE AQUI
-            </span>
-          </div>
-
-          {/* VIA 2: EMPRESA / PRODUÇÃO */}
-          <div className="via-pedido border border-black p-3 sm:p-4 rounded bg-white flex flex-col justify-between" style={{ minHeight: '380px' }}>
-            <div>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black pb-2 mb-3 gap-2">
-                <div>
-                  <strong className="text-sm tracking-tight text-slate-900 font-black">USICORTE METAIS</strong>
-                  <span className="text-xs ml-2 px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-bold">VIA DA EMPRESA / PRODUÇÃO</span>
-                </div>
-                <span className="text-xs">
-                  <strong>PEDIDO Nº:</strong> <span className="rel-numero font-mono font-bold">{currentQuote.quoteNumber || '00124'}</span>
-                </span>
-              </div>
-
-              <div className="text-xs mb-3 text-slate-700 flex flex-col sm:flex-row justify-between gap-1">
-                <div><strong>Cliente:</strong> <span className="lbl-cliente-nome font-bold uppercase">{selectedClientName}</span></div>
-                <div><strong>Data:</strong> <span className="rel-data font-mono">{currentQuote.date || new Date().toLocaleDateString('pt-BR')}</span></div>
-              </div>
-
-              {/* Mobile Cards Via 2 */}
-              <div className="block sm:hidden space-y-2 mb-3">
-                {currentQuote.items.map((item, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded p-2 text-xs bg-slate-50 space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span>{item.constanteNome || item.material || 'MATERIAL'}</span>
-                      <span className="font-mono">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 flex justify-between">
-                      <span>Medida: {formatarMedidasLimpa(item)}</span>
-                      <span>Qtd: {item.qtd || item.quantity || 1}</span>
-                    </div>
-                  </div>
+          <div className="flex flex-col gap-1 min-w-[200px]">
+            <label className="text-slate-400 text-xs font-medium uppercase tracking-wider">Pedido / Cotação</label>
+            <div className="relative">
+              <select
+                value={pedidoId}
+                onChange={(e) => setPedidoId(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 pr-8 appearance-none focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 cursor-pointer font-mono"
+              >
+                {pedidos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.id} — {p.status}</option>
                 ))}
-              </div>
-
-              {/* Desktop Table Via 2 */}
-              <table className="hidden sm:table w-full text-xs border-collapse mb-3" border={1} cellPadding={4}>
-                <thead>
-                  <tr className="bg-slate-100 font-bold text-[10px] uppercase">
-                    <th className="text-left p-1.5">MATERIAL</th>
-                    <th className="text-center p-1.5">MEDIDAS</th>
-                    <th className="text-center p-1.5 w-12">QTD</th>
-                    <th className="text-right p-1.5">PESO TOTAL</th>
-                    <th className="text-right p-1.5">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="tbody-resumido divide-y divide-slate-200">
-                  {currentQuote.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="p-1.5 font-bold text-slate-900">{item.constanteNome || item.material || 'MATERIAL'}</td>
-                      <td className="p-1.5 text-center font-mono text-[10px]">{formatarMedidasLimpa(item)}</td>
-                      <td className="p-1.5 text-center font-mono font-bold">{item.qtd || item.quantity || 1}</td>
-                      <td className="p-1.5 text-right font-mono">{formatWeightKg(item.pesoTotal || item.totalWeightKg || 0, 3)}</td>
-                      <td className="p-1.5 text-right font-mono font-bold">{formatCurrency(item.subtotal || ((item.unitPrice || 0) * (item.quantity || 1)))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs border-t border-black pt-2 mt-2 gap-2">
-              <span className="text-slate-600">Vendedor / Produção: ___________________________________</span>
-              <strong className="text-sm font-mono text-slate-950">TOTAL: <span className="lbl-valor-total">{formatCurrency(grandTotal)}</span></strong>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
-        </div>
-
-        {/* ===================================================
-             PROPOSTA 3: ETIQUETA CUPOM 80x80mm (IDENTIFICAÇÃO DA PEÇA)
-             =================================================== */}
-        <div 
-          id="doc-etiqueta-80" 
-          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 w-full max-w-[380px] border-2 border-black rounded-lg p-4 bg-white text-black font-sans relative mx-auto shadow-2xl print:m-0 ${
-            activeModel === 'etiqueta-80' ? 'block' : 'hidden'
-          }`}
-        >
-          {/* Cabeçalho Original */}
-          <div className="etiqueta-header text-center pb-2 border-b-2 border-black mb-3">
-            <h2 className="font-extrabold text-xl tracking-wider uppercase leading-tight">USICORTE METAIS</h2>
-            <p className="text-xs font-bold text-gray-800 mt-0.5">
-              PEDIDO Nº: <span className="font-mono font-black text-blue-900 rel-numero">{currentQuote.quoteNumber || currentQuote.id || 'COT-2026-9663'}</span>
-            </p>
-          </div>
-
-          {/* Conteúdo: Dados + Desenho */}
-          <div className="etiqueta-corpo grid grid-cols-12 gap-2 items-start mb-3">
-            {/* Coluna Esquerda - Informações */}
-            <div className="etiqueta-dados col-span-7 text-xs space-y-1.5 leading-tight">
-              <div>
-                <span className="font-bold text-gray-600 block text-[10px]">EMPRESA / CLIENTE:</span>
-                <span className="lbl-cliente-nome font-extrabold uppercase block">{selectedClientName || currentQuote.clientName || 'CLIENTE BALCÃO'}</span>
-              </div>
-
-              <div>
-                <span className="font-bold text-gray-600 block text-[10px]">MATERIAL:</span>
-                <span id="etiq-material" className="font-extrabold uppercase text-sm text-blue-950 block truncate">
-                  {activeItem.constanteNome || activeItem.material || 'BRONZE TM-23'}
-                </span>
-              </div>
-
-              <div>
-                <span className="font-bold text-gray-600 block text-[10px]">MEDIDA:</span>
-                <span id="etiq-medida" className="font-bold block text-[11.5px] font-mono">
-                  {formatarMedidasLimpa(activeItem) || 'Ø 50 x 200 mm'}
-                </span>
-              </div>
-
-              <div>
-                <span className="font-bold text-gray-600 block text-[10px]">QTD:</span>
-                <span id="etiq-qtd" className="font-black text-sm">
-                  {activeItem.qtd || activeItem.quantity || 1} PC
-                </span>
-              </div>
-
-              {/* Campo de Observação */}
-              {(activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations) && (
-                <div className="pt-1">
-                  <span className="font-bold text-gray-600 block text-[10px]">OBSERVAÇÃO:</span>
-                  <span id="etiq-obs" className="font-semibold text-[11px] block text-gray-800 italic leading-snug">
-                    {activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Coluna Direita - Desenho Técnico Nítido */}
-            <div 
-              id="box-foto-etiqueta"
-              className="etiqueta-foto-box col-span-5 border-2 border-dashed border-gray-400 p-1 rounded flex items-center justify-center min-h-[110px] bg-slate-50 overflow-hidden"
-            >
-              {drawingPhoto ? (
-                <img 
-                  id="img-desenho-etiqueta"
-                  src={drawingPhoto} 
-                  alt="Desenho Peça" 
-                  className="desenho-tecnico-img max-h-[100px] w-auto object-contain print:contrast-[250%] print:brightness-90"
-                  style={{ filter: 'contrast(200%) brightness(85%)' }}
-                />
-              ) : (
-                <span id="sem-foto-msg" className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-wide">
-                  CORTE / USINAGEM CNC
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Item selector pills if quote has multiple items */}
-          {currentQuote.items.length > 1 && (
-            <div className="btn-no-print pt-1 pb-2 mb-2 flex items-center gap-1 overflow-x-auto border-t border-slate-200">
-              <span className="text-[9px] text-slate-400 font-bold">Peça:</span>
-              {currentQuote.items.map((it, idx) => (
+          <div className="flex flex-col gap-1">
+            <label className="text-slate-400 text-xs font-medium uppercase tracking-wider">Visualização</label>
+            <div className="flex gap-1 bg-slate-700/60 rounded-lg p-1 border border-slate-600">
+              {viewOptions.map((opt) => (
                 <button
-                  key={idx}
-                  onClick={() => setSelectedItemIndex(idx)}
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition-all ${
-                    selectedItemIndex === idx ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  key={opt.value}
+                  onClick={() => setViewType(opt.value)}
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all ${
+                    viewType === opt.value
+                      ? "bg-amber-500 text-slate-900"
+                      : "text-slate-400 hover:text-white hover:bg-slate-600"
                   }`}
                 >
-                  #{idx + 1}
+                  {opt.label}
                 </button>
               ))}
             </div>
-          )}
-
-          {/* Rodapé Interno */}
-          <div className="etiqueta-footer pt-2 border-t border-black text-center mt-auto">
-            <span className="site-url text-[10px] font-bold tracking-widest text-black uppercase block">
-              www.usicortemetais.com.br
-            </span>
           </div>
         </div>
 
-        {/* ===================================================
-             PROPOSTA 4: RELATÓRIO / PROPOSTA COMERCIAL (4 COLUNAS RESPONSIVA)
-             =================================================== */}
-        <div 
-          id="doc-proposta-resumida" 
-          className={`documento-modelo secao-proposta-resumida mx-auto ${
-            activeModel === 'proposta-resumida' ? 'block' : 'hidden'
-          }`}
-        >
-          <QuotePrintView 
-            quote={{
-              id: currentQuote.quoteNumber || currentQuote.id || 'COT-2026-3169',
-              quoteNumber: currentQuote.quoteNumber || currentQuote.id || 'COT-2026-3169',
-              date: currentQuote.date || new Date().toLocaleDateString('pt-BR'),
-              clientName: selectedClientName || currentQuote.clientName || 'BRASIL TECNOLOGIAS LTDA',
-              paymentTerms: currentQuote.paymentTerms || 'À Vista / Pix (3% Desc.)',
-              validityDays: currentQuote.validityDays || 10,
-              deliveryTerms: 'A combinar / Imediato',
-              observations: currentQuote.observations,
-              totalWeightKg: currentQuote.totalWeightKg || (currentQuote.items ? currentQuote.items.reduce((acc, it) => acc + (it.totalWeightKg || 0), 0) : undefined),
-              totalDiscount: currentQuote.discount,
-              shippingCost: currentQuote.shipping,
-              grandTotal: currentQuote.grandTotal,
-              items: currentQuote.items.map(it => ({
-                material: it.constanteNome || it.constantName || it.material || 'MATERIAL',
-                dimensions: formatarMedidasLimpa(it) || 'Ø 50 x 200 mm',
-                description: it.descricao || it.description || 'Corte / Usinagem Industrial',
-                info: it.observacao || it.notes || it.info || '-'
-              }))
-            }}
-          />
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors border border-slate-600 hover:border-slate-500"
+          >
+            <Printer size={14} />
+            Imprimir Pedido (A4)
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors border border-slate-600 hover:border-slate-500"
+          >
+            <Tag size={14} />
+            Imprimir Etiqueta da Peça
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <FileText size={14} />
+            Imprimir Proposta (A4)
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-3 py-2 rounded-lg transition-colors border border-slate-600"
+          >
+            <Download size={14} />
+            Exportar CSV
+          </button>
+          <button
+            onClick={handleExportJSON}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-3 py-2 rounded-lg transition-colors border border-slate-600"
+          >
+            <Download size={14} />
+            Exportar JSON
+          </button>
         </div>
-
       </div>
-        </>
-      )}
 
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {viewType === "etiqueta-80x80" && (
+          <div className="w-72 flex-shrink-0 bg-slate-800/40 border-r border-slate-700/60 flex flex-col overflow-y-auto">
+            <div className="p-4 border-b border-slate-700/60">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">Selecionar Peça</p>
+              <div className="flex flex-wrap gap-2">
+                {itens.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setPecaAtiva(item.id)}
+                    className={`w-10 h-10 rounded-lg font-bold text-sm transition-all relative ${
+                      item.id === pecaAtiva
+                        ? "bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/30"
+                        : "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
+                    }`}
+                  >
+                    #{item.id}
+                    {fotosPorPeca[item.id] && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-slate-800" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {itens.find((i) => i.id === pecaAtiva) && (
+              <div className="p-4 border-b border-slate-700/60 space-y-1.5">
+                <p className="text-amber-400 text-xs font-semibold uppercase tracking-wider">Peça #{pecaAtiva}</p>
+                <p className="text-white text-sm font-medium">{itens.find((i) => i.id === pecaAtiva)?.descricao}</p>
+                <p className="text-slate-400 text-xs">{itens.find((i) => i.id === pecaAtiva)?.material}</p>
+                <p className="text-slate-400 text-xs">{itens.find((i) => i.id === pecaAtiva)?.medida}</p>
+              </div>
+            )}
+
+            <div className="p-4 space-y-3">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Desenho Técnico — Peça #{pecaAtiva}</p>
+
+              <div className="flex items-center gap-2 bg-slate-700/40 border border-dashed border-slate-600 rounded-lg px-3 py-2.5 text-slate-400 text-xs">
+                <Clipboard size={13} />
+                <span>Pressione <kbd className="bg-slate-600 px-1 py-0.5 rounded text-slate-300">Ctrl+V</kbd> para colar</span>
+              </div>
+
+              {hasFotoAtiva ? (
+                <div className="relative rounded-lg overflow-hidden border border-slate-600 bg-slate-700">
+                  <img
+                    key={pecaAtiva}
+                    src={fotosPorPeca[pecaAtiva]}
+                    alt={`Desenho peça #${pecaAtiva}`}
+                    className="w-full h-36 object-contain bg-white"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">OK</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 h-28 bg-slate-700/40 border border-dashed border-slate-600 rounded-lg text-slate-500">
+                  <ImageIcon size={20} />
+                  <span className="text-xs">Sem imagem — Peça #{pecaAtiva}</span>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-amber-500/50 text-slate-300 hover:text-white text-xs font-medium py-2.5 rounded-lg transition-all"
+              >
+                <Upload size={13} />
+                {hasFotoAtiva ? "Alterar Arquivo" : "Carregar Arquivo"}
+              </button>
+
+              {hasFotoAtiva && (
+                <button
+                  onClick={handleRemoveFoto}
+                  className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/60 text-red-400 text-xs font-medium py-2.5 rounded-lg transition-all"
+                >
+                  <Trash2 size={13} />
+                  Remover Foto — Peça #{pecaAtiva}
+                </button>
+              )}
+
+              <div className="pt-2 border-t border-slate-700/60">
+                <p className="text-slate-500 text-xs font-medium mb-2">Status das Peças</p>
+                <div className="space-y-1.5">
+                  {itens.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between text-xs cursor-pointer group"
+                      onClick={() => setPecaAtiva(item.id)}
+                    >
+                      <span className={`group-hover:text-white transition-colors ${item.id === pecaAtiva ? "text-amber-400 font-semibold" : "text-slate-400"}`}>
+                        #{item.id} — {item.descricao}
+                      </span>
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${fotosPorPeca[item.id] ? "bg-green-400" : "bg-slate-600"}`} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto p-6 bg-slate-900/50">
+          {!pedidoId ? (
+            <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+              Selecione um cliente e um pedido para visualizar.
+            </div>
+          ) : viewType === "etiqueta-80x80" ? (
+            <LabelPreview
+              pedidoId={pedidoId}
+              cliente={cliente}
+              itens={itens}
+              pecaAtiva={pecaAtiva}
+              fotosPorPeca={fotosPorPeca}
+              onSelectPeca={setPecaAtiva}
+            />
+          ) : (
+            <div className="flex justify-center">
+              <A4Preview
+                pedido={pedido!}
+                cliente={cliente}
+                itens={itens}
+                fotosPorPeca={fotosPorPeca}
+                mode={viewType as "a4-inteiro" | "a4-2vias" | "proposta-4col"}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
