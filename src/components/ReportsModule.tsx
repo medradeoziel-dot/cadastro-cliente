@@ -109,7 +109,32 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pasteAreaRef = useRef<HTMLDivElement>(null);
+// Captura a imagem colada com Ctrl + V e atualiza a foto do desenho técnico
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
+      for (const item of items) {
+        if (item.type.includes("image")) {
+          const blob = item.getAsFile();
+          if (!blob) continue;
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Image = event.target?.result as string;
+            setDrawingPhoto(base64Image);
+            setPasteSuccess(true);
+            setTimeout(() => setPasteSuccess(false), 3000);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
   // Combine current quote items with sample database entries
   const allConsultaItems: ConsultaItem[] = useMemo(() => {
     const currentItems: ConsultaItem[] = (currentQuote?.items || []).map((it, idx) => ({
