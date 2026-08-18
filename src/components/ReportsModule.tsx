@@ -76,25 +76,38 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
   
   // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
+  // Salva a imagem colada exclusivamente no índice da peça selecionada (#1, #2, etc.)
   useEffect(() => {
-    const handleAfterPrint = () => {
-      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.includes("image")) {
+          const blob = item.getAsFile();
+          if (!blob) continue;
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Image = event.target?.result as string;
+            setDrawingPhotos((prev) => ({
+              ...prev,
+              [selectedItemIndex]: base64Image,
+            }));
+            setPasteSuccess(true);
+            setTimeout(() => setPasteSuccess(false), 3000);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
     };
-    window.addEventListener('afterprint', handleAfterPrint);
-    return () => {
-      window.removeEventListener('afterprint', handleAfterPrint);
-      handleAfterPrint();
-    };
-  }, []);
-  
-  // Selected client for report (prioritizing Nome Fantasia)
-  const [selectedClientName, setSelectedClientName] = useState<string>(() => currentQuote.clientName || 'CLIENTE BALCÃO');
-  
-  // Selected saved order/file
-  const [selectedOrderKey, setSelectedOrderKey] = useState<string>('CURRENT');
-  
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [selectedItemIndex]);
+  const currentDrawingPhoto = drawingPhotos[selectedItemIndex] || SAMPLE_DRAWING_BASE64;
   // Drawing photo for item/label
-  const [drawingPhoto, setDrawingPhoto] = useState<string>(SAMPLE_DRAWING_BASE64);
+  const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
   
   // Selected item index for individual label printing
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
