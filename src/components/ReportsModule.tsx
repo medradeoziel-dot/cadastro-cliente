@@ -74,48 +74,27 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   // Active document preview / print mode
   const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
   const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
-  // Estados para as fotos individuais e seleção de peça
-  const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
-  const [pasteSuccess, setPasteSuccess] = useState<boolean>(false);
-
-  // Pega a foto da peça selecionada ou a imagem padrão
-  const currentDrawingPhoto = drawingPhotos[selectedItemIndex] || SAMPLE_DRAWING_BASE64;
-
-  // Escuta o Ctrl + V para colar a imagem na peça selecionada
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of items) {
-        if (item.type.includes("image")) {
-          const blob = item.getAsFile();
-          if (!blob) continue;
-
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64Image = event.target?.result as string;
-            setDrawingPhotos((prev) => ({
-              ...prev,
-              [selectedItemIndex]: base64Image,
-            }));
-            setPasteSuccess(true);
-            setTimeout(() => setPasteSuccess(false), 3000);
-          };
-          reader.readAsDataURL(blob);
-        }
-      }
-    };
-
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, [selectedItemIndex]);
-  // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
   
+  // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      handleAfterPrint();
+    };
+  }, []);
+  
+  // Selected client for report (prioritizing Nome Fantasia)
+  const [selectedClientName, setSelectedClientName] = useState<string>(() => currentQuote.clientName || 'CLIENTE BALCÃO');
+  
+  // Selected saved order/file
+  const [selectedOrderKey, setSelectedOrderKey] = useState<string>('CURRENT');
   
   // Drawing photo for item/label
-  const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
+  const [drawingPhoto, setDrawingPhoto] = useState<string>(SAMPLE_DRAWING_BASE64);
   
   // Selected item index for individual label printing
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
@@ -130,25 +109,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pasteAreaRef = useRef<HTMLDivElement>(null);
-// Captura a imagem colada com Ctrl + V e atualiza a foto do desenho técnico
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
 
-      for (const item of items) {
-        if (item.type.includes("image")) {
-          const blob = item.getAsFile();
-          if (!blob) continue;
-
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            
-    };
-
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, []);
   // Combine current quote items with sample database entries
   const allConsultaItems: ConsultaItem[] = useMemo(() => {
     const currentItems: ConsultaItem[] = (currentQuote?.items || []).map((it, idx) => ({
