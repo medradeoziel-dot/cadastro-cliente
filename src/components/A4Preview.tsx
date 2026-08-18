@@ -1,5 +1,5 @@
 
-import type { Cliente, ItemPedido, Pedido } from "@/lib/types";
+import type { Cliente, ItemPedido, Pedido } from "../lib/types";
 
 interface A4PreviewProps {
   pedido: Pedido;
