@@ -1,4 +1,3 @@
-
 import { TrendingUp, FileText, Users, Package, Clock, CheckCircle, AlertCircle, ArrowUpRight } from "lucide-react";
 
 const stats = [
