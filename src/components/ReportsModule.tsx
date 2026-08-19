@@ -214,19 +214,25 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   };
 
   // Handle saved file / order switcher
-  const handleOrderChange = (key: string) => {
-    setSelectedOrderKey(key);
-    if (key === 'PED-00124') {
-      setSelectedClientName('USICORTE USINAGEM LTDA');
-      setDrawingPhoto(SAMPLE_DRAWING_BASE64);
-    } else if (key === 'PED-00125') {
-      setSelectedClientName('INDÚSTRIA METALÚRGICA SP');
-      setDrawingPhoto('');
-    } else {
-      setSelectedClientName(currentQuote.clientName || 'CLIENTE BALCÃO');
-      setDrawingPhoto(currentQuote.drawingImage || SAMPLE_DRAWING_BASE64);
-    }
-  };
+const handleOrderChange = (key: string) => {
+  setSelectedOrderKey(key);
+
+  if (key === 'PED-00124') {
+    setSelectedClientName('USICORTE USINAGEM LTDA');
+    setDrawingPhoto(SAMPLE_DRAWING_BASE64);
+  } else if (key === 'PED-00125') {
+    setSelectedClientName('INDÚSTRIA METALÚRGICA SP');
+    setDrawingPhoto('');
+  } else {
+    setSelectedClientName(currentQuote.clientName || 'CLIENTE BALCÃO');
+
+    // ✅ Alteração: percorre os itens e usa a imagem de cada um
+    currentQuote.items.forEach((item, index) => {
+      setDrawingPhoto(item.drawingImage || SAMPLE_DRAWING_BASE64);
+    });
+  }
+};
+
 
   // Handle drawing photo upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
