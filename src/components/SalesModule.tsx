@@ -1345,10 +1345,19 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-right">
-              <span className="text-[10px] text-slate-400 font-bold block uppercase">Cotação Nº</span>
-              <span className="text-xs font-mono font-black text-indigo-700">{quoteNumber}</span>
-            </div>
+            <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg min-w-[180px]">
+  <label className="text-[10px] text-slate-400 font-bold block uppercase mb-1">
+    Cotação Nº
+  </label>
+
+  <input
+    type="text"
+    value={quoteNumber}
+    onChange={(e) => setQuoteNumber(e.target.value.toUpperCase())}
+    placeholder="COT-2026-0001"
+    className="w-full bg-transparent text-xs font-mono font-black text-indigo-700 outline-none"
+  />
+</div>
             <select
               value={quoteStatus}
               onChange={(e) => setQuoteStatus(e.target.value as Quote['status'])}
