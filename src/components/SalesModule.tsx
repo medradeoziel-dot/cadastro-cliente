@@ -87,7 +87,24 @@ export default function SalesModule({
   onNavigateToReports
 }: SalesModuleProps) {
   // Quote header state
-  const [quoteNumber, setQuoteNumber] = useState<string>(() => `COT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const generateNextQuoteNumber = () => {
+  const year = new Date().getFullYear();
+  const saved = JSON.parse(localStorage.getItem("s_orcamentos") || "[]");
+
+  let max = 0;
+
+  saved.forEach((q: any) => {
+    const match = (q.quoteNumber || "").match(/COT-\d{4}-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > max) max = num;
+    }
+  });
+
+  return `COT-${year}-${String(max + 1).padStart(4, "0")}`;
+};
+
+const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNumber());
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientName, setClientName] = useState<string>('');
   const [clientDocument, setClientDocument] = useState<string>('');
@@ -1123,7 +1140,7 @@ export default function SalesModule({
 
   // New clean quote
   const handleNewQuote = () => {
-    const newId = `COT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newId = generateNextQuoteNumber();
     setQuoteNumber(newId);
     setSelectedClientId('');
     setClientName('');
