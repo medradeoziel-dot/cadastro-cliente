@@ -38,6 +38,8 @@ interface ReportsModuleProps {
   onNavigateToQuote?: () => void;
 }
 
+export type StatusProposta = 'rascunho' | 'pendente' | 'aprovado' | 'rejeitado';
+
 type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80' | 'proposta-resumida' | 'corte';
 
 export interface ConsultaItem {
@@ -54,16 +56,24 @@ export interface ConsultaItem {
   valorGeral: number;
   cotacao: string;
   observacao?: string;
+  status: StatusProposta;
 }
 
 // Dados de exemplo para o módulo de consulta
 const DADOS_CONSULTA_EXEMPLO: ConsultaItem[] = [
-  { idVer: 13942, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'NYLON REDONDO', medida: '60 x 780', descricao: 'NYLON', valor: 'R$ 90,00', qtd: 1, unitario: 238, valorGeral: 238, cotacao: '' },
-  { idVer: 13940, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'QUADRADO', medida: '1 1/4 x 110', descricao: 'TREFILADO SAE 1045', valor: 'R$ 35,00', qtd: 1, unitario: 30, valorGeral: 30, cotacao: '' },
-  { idVer: 13930, data: '12/08/2026', empresa: 'VCI METAIS', contato: 'Carlos', produto: 'CHAPA', medida: '1 1/2 x 79 x 155', descricao: 'RETANGULO', valor: 'R$ 22,00', qtd: 1, unitario: 81, valorGeral: 81, cotacao: '' },
-  { idVer: 13911, data: '12/08/2026', empresa: 'PORTEX', contato: 'Roberto', produto: 'AÇO REDONDO', medida: '4"1/2 x 40', descricao: 'LAMINADO SAE 4140', valor: 'R$ 28,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: 'COT 127' },
-  { idVer: 13897, data: '12/08/2026', empresa: 'IRMÃOS VICENTE', contato: 'João', produto: 'AÇO REDONDO', medida: '5" x 43', descricao: 'LAMINADO SAE 1045', valor: 'R$ 21,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: '' }
+  { idVer: 13942, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'NYLON REDONDO', medida: '60 x 780', descricao: 'NYLON', valor: 'R$ 90,00', qtd: 1, unitario: 238, valorGeral: 238, cotacao: '' , status: 'rascunho' },
+  { idVer: 13940, data: '12/08/2026', empresa: 'DPROJECTS', contato: 'Marcos', produto: 'QUADRADO', medida: '1 1/4 x 110', descricao: 'TREFILADO SAE 1045', valor: 'R$ 35,00', qtd: 1, unitario: 30, valorGeral: 30, cotacao: '' , status: 'pendente' },
+  { idVer: 13930, data: '12/08/2026', empresa: 'VCI METAIS', contato: 'Carlos', produto: 'CHAPA', medida: '1 1/2 x 79 x 155', descricao: 'RETANGULO', valor: 'R$ 22,00', qtd: 1, unitario: 81, valorGeral: 81, cotacao: '' , status: 'aprovado' },
+  { idVer: 13911, data: '12/08/2026', empresa: 'PORTEX', contato: 'Roberto', produto: 'AÇO REDONDO', medida: '4"1/2 x 40', descricao: 'LAMINADO SAE 4140', valor: 'R$ 28,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: 'COT 127' , status: 'rejeitado' },
+  { idVer: 13897, data: '12/08/2026', empresa: 'IRMÃOS VICENTE', contato: 'João', produto: 'AÇO REDONDO', medida: '5" x 43', descricao: 'LAMINADO SAE 1045', valor: 'R$ 21,00', qtd: 1, unitario: 90, valorGeral: 90, cotacao: '', status: 'aprovado' }
 ];
+
+const STATUS_STYLES: Record<StatusProposta, string> = {
+  rascunho: 'bg-slate-200 text-slate-700',
+  pendente: 'bg-amber-200 text-amber-900',
+  aprovado: 'bg-emerald-200 text-emerald-900',
+  rejeitado: 'bg-rose-200 text-rose-900'
+};
 
 // Sample technical blueprint drawing in base64 SVG
 const SAMPLE_DRAWING_BASE64 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%"><rect width="200" height="200" fill="%23f8fafc" stroke="%23cbd5e1" stroke-width="2"/><circle cx="100" cy="100" r="60" fill="none" stroke="%232563eb" stroke-width="2" stroke-dasharray="4,2"/><circle cx="100" cy="100" r="35" fill="%23dbeafe" stroke="%231e40af" stroke-width="2.5"/><line x1="20" y1="100" x2="180" y2="100" stroke="%23ef4444" stroke-width="1" stroke-dasharray="3,3"/><line x1="100" y1="20" x2="100" y2="180" stroke="%23ef4444" stroke-width="1" stroke-dasharray="3,3"/><circle cx="100" cy="100" r="3" fill="%23ef4444"/><text x="100" y="32" font-family="monospace" font-size="10" text-anchor="middle" font-weight="bold" fill="%231e293b">Ø 120 ±0.05</text><text x="100" y="104" font-family="monospace" font-size="9" text-anchor="middle" font-weight="bold" fill="%231e40af">Ø 70 mm</text><text x="100" y="188" font-family="sans-serif" font-size="8" text-anchor="middle" fill="%2364748b">CORTE / USINAGEM CNC</text></svg>`;
@@ -109,6 +119,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   const [inputBusca, setInputBusca] = useState<string>('');
   // Campo dedicado: NOME DO CLIENTE (filtra sempre, combinado com a busca acima)
   const [clienteBusca, setClienteBusca] = useState<string>('');
+  // Filtro por situação da proposta (para não misturar no fechamento)
+  const [statusFiltro, setStatusFiltro] = useState<'todos' | StatusProposta>('todos');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,7 +141,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
       unitario: it.unitPrice || 0,
       valorGeral: (it.unitPrice || 0) * (it.qtd || it.quantity || 1),
       cotacao: currentQuote.quoteNumber || 'COT-00124',
-      observacao: (it.observacao || it.notes || it.info || '') as string
+      observacao: (it.observacao || it.notes || it.info || '') as string,
+      status: (((it as unknown as { status?: StatusProposta }).status) || (currentQuote as unknown as { status?: StatusProposta }).status || 'rascunho') as StatusProposta
     }));
 
     return [...currentItems, ...DADOS_CONSULTA_EXEMPLO];
@@ -152,6 +165,9 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
       // 1) Filtro fixo por nome do cliente
       if (cliente && !normalizar(item.empresa).includes(cliente)) return false;
 
+      // 1.b) Filtro por situação (rascunho / pendente / aprovado / rejeitado)
+      if (statusFiltro !== 'todos' && item.status !== statusFiltro) return false;
+
       // 2) Filtro por categoria selecionada
       if (!term) return true;
 
@@ -170,7 +186,7 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
           return true;
       }
     });
-  }, [allConsultaItems, inputBusca, clienteBusca, tipoFiltro]);
+  }, [allConsultaItems, inputBusca, clienteBusca, tipoFiltro, statusFiltro]);
 
   // Mantém selecionados apenas os itens que continuam visíveis após o filtro
   useEffect(() => {
@@ -467,6 +483,15 @@ const handleOrderChange = (key: string) => {
   return (
     <div id="screen-relatorios" className="space-y-6">
 
+      {/* Tamanho de página: A4 RETRATO para todos os modelos, exceto ETIQUETAS */}
+      <style>{activeModel === 'etiqueta-80'
+        ? `@page { size: 80mm auto; margin: 3mm; }`
+        : `@page { size: A4 portrait; margin: 10mm; }
+           @media print {
+             html, body { width: 210mm; }
+             .documento-modelo { width: 100% !important; max-width: 190mm !important; margin: 0 auto !important; box-shadow: none !important; }
+           }`}</style>
+
       {/* Regras de impressão do modelo de CORTE */}
       <style>{`
         @media print {
@@ -596,6 +621,20 @@ const handleOrderChange = (key: string) => {
                 /> DATA
               </label>
 
+              <select
+                id="selectStatus"
+                className="input-busca-avancada"
+                value={statusFiltro}
+                onChange={(e) => setStatusFiltro(e.target.value as 'todos' | StatusProposta)}
+                title="Filtrar por situação da proposta"
+              >
+                <option value="todos">SITUAÇÃO: TODAS</option>
+                <option value="rascunho">RASCUNHO</option>
+                <option value="pendente">PENDENTE</option>
+                <option value="aprovado">APROVADO</option>
+                <option value="rejeitado">REJEITADO</option>
+              </select>
+
               <input 
                 type="text" 
                 id="inputCliente" 
@@ -631,6 +670,7 @@ const handleOrderChange = (key: string) => {
                     />
                   </th>
                   <th>Cotação</th>
+                  <th>Situação</th>
                   <th>Data</th>
                   <th>Cliente / Empresa</th>
                   <th>Contato</th>
@@ -646,7 +686,7 @@ const handleOrderChange = (key: string) => {
               <tbody id="tbodyConsulta">
                 {filteredConsultaItems.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="text-center py-6 text-slate-500 font-medium">
+                    <td colSpan={13} className="text-center py-6 text-slate-500 font-medium">
                       Nenhum registro encontrado para os filtros selecionados.
                     </td>
                   </tr>
@@ -674,6 +714,11 @@ const handleOrderChange = (key: string) => {
                           />
                         </td>
                         <td><strong>{item.cotacao || '-'}</strong></td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_STYLES[item.status]}`}>
+                            {item.status}
+                          </span>
+                        </td>
                         <td>{item.data}</td>
                         <td><strong>{item.empresa}</strong></td>
                         <td>{item.contato || '-'}</td>
