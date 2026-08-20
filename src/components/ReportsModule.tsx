@@ -187,6 +187,22 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     }
   }, [currentQuote.clientName, selectedOrderKey]);
 
+  // ✅ Normaliza texto para comparação (sem acento, sem símbolos, maiúsculo)
+  const normalizeKey = (txt: string) =>
+    (txt || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\.[^.]+$/, '')            // remove extensão do arquivo
+      .replace(/[^a-zA-Z0-9]/g, '')       // remove espaços, traços, underline...
+      .toUpperCase();
+
+  // Texto de "observação" usado como etiqueta de cada item
+  const getItemLabel = (it: Partial<QuoteItem>) =>
+    (it?.observacao || it?.notes || it?.info || it?.descricao || '') as string;
+
+  // Mensagem de resultado do casamento nome-do-arquivo x observação
+  const [matchInfo, setMatchInfo] = useState<string>('');
+
   // Handle clipboard paste (Ctrl + V / PrintScreen / Win+Shift+S)
   const processClipboardItems = (clipboardData: DataTransfer | null) => {
     if (!clipboardData) return;
@@ -233,19 +249,70 @@ const handleOrderChange = (key: string) => {
   }
 };
 
-  // Handle drawing photo upload
+  // Handle drawing photo upload (SELEÇÃO MÚLTIPLA + casamento pelo nome do arquivo)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    // Mapa: observação normalizada -> índice do item
+    const labelMap = new Map<string, number>();
+    (currentQuote.items || []).forEach((it, idx) => {
+      const key = normalizeKey(getItemLabel(it));
+      if (key && !labelMap.has(key)) labelMap.set(key, idx);
+    });
+
+    const matched: string[] = [];
+    const unmatched: string[] = [];
+    let pending = files.length;
+
+    files.forEach((file) => {
+      const fileKey = normalizeKey(file.name);
+
+      // 1) match exato  2) match parcial (arquivo contém a observação ou vice-versa)
+      let targetIdx = labelMap.get(fileKey);
+      if (targetIdx === undefined) {
+        for (const [key, idx] of labelMap.entries()) {
+          if (fileKey.includes(key) || key.includes(fileKey)) {
+            targetIdx = idx;
+            break;
+          }
+        }
+      }
+      // 3) se veio um único arquivo e nada casou, aplica no item selecionado
+      if (targetIdx === undefined && files.length === 1) targetIdx = selectedItemIndex;
+
+      if (targetIdx === undefined) {
+        unmatched.push(file.name);
+        if (--pending === 0) finish();
+        return;
+      }
+
+      const idx = targetIdx;
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
-        setDrawingPhotos(prev => ({ ...prev, [selectedItemIndex]: base64 }));
-        setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 4000);
+        setDrawingPhotos(prev => ({ ...prev, [idx]: base64 }));
+        matched.push(`${file.name} → item ${idx + 1}`);
+        if (--pending === 0) finish();
+      };
+      reader.onerror = () => {
+        unmatched.push(file.name);
+        if (--pending === 0) finish();
       };
       reader.readAsDataURL(file);
+    });
+
+    function finish() {
+      setPasteSuccess(matched.length > 0);
+      setMatchInfo(
+        `${matched.length} imagem(ns) vinculada(s)` +
+        (unmatched.length ? ` • sem correspondência: ${unmatched.join(', ')}` : '')
+      );
+      setTimeout(() => { setPasteSuccess(false); setMatchInfo(''); }, 6000);
     }
+
+    // permite reenviar os mesmos arquivos
+    e.target.value = '';
   };
 
   // Alterna entre os modelos e ativa a caixa de impressão do navegador com setTimeout
@@ -715,8 +782,12 @@ const handleOrderChange = (key: string) => {
                   )}
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  Ou clique em "Carregar Arquivo" para selecionar uma imagem do computador
+                  Ou clique em "Carregar Arquivos" e selecione VÁRIAS imagens de uma vez — cada arquivo vai
+                  para a etiqueta cujo campo <strong>Observação</strong> tenha o mesmo nome do arquivo.
                 </span>
+                {matchInfo && (
+                  <span className="block text-[11px] text-amber-300 mt-1">{matchInfo}</span>
+                )}
               </div>
             </div>
 
@@ -735,6 +806,7 @@ const handleOrderChange = (key: string) => {
                 ref={fileInputRef} 
                 onChange={handleImageUpload} 
                 accept="image/*" 
+                multiple 
                 className="hidden" 
               />
               <button
@@ -746,7 +818,7 @@ const handleOrderChange = (key: string) => {
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Upload className="w-3.5 h-3.5 text-blue-400" />
-                <span>{currentDrawing ? 'Alterar Arquivo' : 'Carregar Arquivo'}</span>
+                <span>{currentDrawing ? 'Alterar / Adicionar Arquivos' : 'Carregar Arquivos'}</span>
               </button>
             </div>
           </div>
