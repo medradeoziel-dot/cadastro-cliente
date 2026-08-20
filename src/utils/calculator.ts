@@ -1232,13 +1232,24 @@ export const PRODUCT_DESCRIPTION_PRESETS: ProductDescriptionPreset[] = [
     keywords: ['oxicorte', 'chapa grossa', 'pantografo', 'bloco grosso']
   },
   {
-    name: 'DISCO / FLANGE CORTADA A LASER',
+    name: 'DISCO',
     category: 'Chapas & Desenhos',
     geometryType: 'chapa',
     constant: 0.00785,
     constantSelect: 'laser_chapa',
     defaultPriceKg: 24.00,
-    badge: 'Disco / Flange',
+    badge: 'Disco',
+    description: 'Disco circular ou flange com furação cortada a laser (k=0.00785)',
+    keywords: ['disco', 'flange', 'circular', 'furacao', 'laser']
+  },
+  {
+    name: 'FLANGE',
+    category: 'Chapas & Desenhos',
+    geometryType: 'chapa',
+    constant: 0.00785,
+    constantSelect: 'laser_chapa',
+    defaultPriceKg: 24.00,
+    badge: 'Flange',
     description: 'Disco circular ou flange com furação cortada a laser (k=0.00785)',
     keywords: ['disco', 'flange', 'circular', 'furacao', 'laser']
   },
