@@ -219,16 +219,16 @@ const handleOrderChange = (key: string) => {
 
   if (key === 'PED-00124') {
     setSelectedClientName('USICORTE USINAGEM LTDA');
-    setDrawingPhotos(SAMPLE_DRAWING_BASE64);
+    setDrawingPhoto(SAMPLE_DRAWING_BASE64);
   } else if (key === 'PED-00125') {
     setSelectedClientName('INDÚSTRIA METALÚRGICA SP');
-    setDrawingPhotos('');
+    setDrawingPhoto('');
   } else {
     setSelectedClientName(currentQuote.clientName || 'CLIENTE BALCÃO');
 
     // ✅ Alteração: percorre os itens e usa a imagem de cada um
     currentQuote.items.forEach((item, index) => {
-      setDrawingPhotos(item.drawingImage || SAMPLE_DRAWING_BASE64);
+      setDrawingPhoto(item.drawingImage || SAMPLE_DRAWING_BASE64);
     });
   }
 };
