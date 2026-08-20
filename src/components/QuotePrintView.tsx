@@ -16,6 +16,8 @@ export interface QuoteItem {
   quantidade?: number;
   valorUnitario?: number;
   valorTotal?: number;
+  drawingImage?: string;
+  fotoDesenho?: string;
   [key: string]: any;
 }
 
@@ -162,6 +164,8 @@ export const QuotePrintView: React.FC<QuotePrintViewProps> = (props) => {
     valorTotal:
       item.valorTotal ??
       (item.valorUnitario ? item.valorUnitario * (item.quantidade || 1) : 0),
+    // imagem PROPRIA de cada item (nunca uma imagem global compartilhada)
+    drawingImage: item.drawingImage || item.fotoDesenho || "",
   }));
 
   const subtotal =
@@ -269,6 +273,16 @@ export const QuotePrintView: React.FC<QuotePrintViewProps> = (props) => {
                   <span className="text-xs text-slate-400 block">Material</span>
                   <span className="font-semibold text-slate-800 text-sm">{item.material}</span>
                 </div>
+
+                {item.drawingImage && (
+                  <div className="flex justify-center border border-dashed border-slate-300 rounded p-1 bg-slate-50">
+                    <img
+                      src={item.drawingImage}
+                      alt={`Desenho técnico do item ${index + 1} - ${item.material}`}
+                      className="max-h-[110px] w-auto object-contain print:contrast-[200%]"
+                    />
+                  </div>
+                )}
 
                 {item.medidas && (
                   <div>
@@ -383,6 +397,7 @@ export const QuotePrintView: React.FC<QuotePrintViewProps> = (props) => {
             <thead>
               <tr className="border-b-2 border-slate-200 text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <th className="py-3 px-2">Item / Descrição</th>
+                <th className="py-3 px-2 text-center w-28">Desenho</th>
                 <th className="py-3 px-2 text-center w-20">Qtd</th>
                 <th className="py-3 px-2 text-right w-32">Valor Unit.</th>
                 <th className="py-3 px-2 text-right w-32">Total</th>
@@ -396,6 +411,17 @@ export const QuotePrintView: React.FC<QuotePrintViewProps> = (props) => {
                     {item.medidas && <p className="text-xs text-slate-500 mt-0.5">Medidas: {item.medidas}</p>}
                     {item.descricao && <p className="text-xs text-slate-600 mt-1">{item.descricao}</p>}
                     {item.informacoes && <p className="text-xs text-slate-500 italic mt-0.5">{item.informacoes}</p>}
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    {item.drawingImage ? (
+                      <img
+                        src={item.drawingImage}
+                        alt={`Desenho técnico do item ${index + 1} - ${item.material}`}
+                        className="max-h-[80px] w-auto mx-auto object-contain print:contrast-[200%]"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-2 text-center text-slate-700">{item.quantidade}</td>
                   <td className="py-3 px-2 text-right text-slate-700">{formatCurrency(item.valorUnitario || 0)}</td>
