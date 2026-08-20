@@ -38,7 +38,7 @@ interface ReportsModuleProps {
   onNavigateToQuote?: () => void;
 }
 
-type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80' | 'proposta-resumida';
+type PrintModelType = 'A4-inteiro' | 'A4-2vias' | 'etiqueta-80' | 'proposta-resumida' | 'corte';
 
 export interface ConsultaItem {
   idVer: number;
@@ -53,6 +53,7 @@ export interface ConsultaItem {
   unitario: number;
   valorGeral: number;
   cotacao: string;
+  observacao?: string;
 }
 
 // Dados de exemplo para o módulo de consulta
@@ -73,12 +74,12 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
 
   // Active document preview / print mode
   const [activeModel, setActiveModel] = useState<PrintModelType>('A4-inteiro');
-  const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta'>('pedido');
+  const [printMode, setPrintMode] = useState<'pedido' | 'etiqueta' | 'proposta' | 'corte'>('pedido');
   
   // Limpeza de classes de impressão ao desmontar ou após fechar caixa de impressão
   useEffect(() => {
     const handleAfterPrint = () => {
-      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
+      document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta', 'print-corte');
     };
     window.addEventListener('afterprint', handleAfterPrint);
     return () => {
@@ -127,7 +128,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
       qtd: it.qtd || it.quantity || 1,
       unitario: it.unitPrice || 0,
       valorGeral: (it.unitPrice || 0) * (it.qtd || it.quantity || 1),
-      cotacao: currentQuote.quoteNumber || 'COT-00124'
+      cotacao: currentQuote.quoteNumber || 'COT-00124',
+      observacao: (it.observacao || it.notes || it.info || '') as string
     }));
 
     return [...currentItems, ...DADOS_CONSULTA_EXEMPLO];
@@ -179,6 +181,12 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     });
   }, [filteredConsultaItems]);
 
+  // Linhas selecionadas usadas no modelo de CORTE
+  const itensCorte = useMemo(
+    () => filteredConsultaItems.filter(i => selectedIds.includes(i.idVer)),
+    [filteredConsultaItems, selectedIds]
+  );
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedIds(filteredConsultaItems.map(item => item.idVer));
@@ -193,24 +201,34 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     );
   };
 
-  const imprimirRelatorioGeral = (tipoRelatorio: string) => {
+  // ✅ Cada botão da CONSULTA chama a sua própria tela de impressão (modelos já existentes)
+  const imprimirRelatorioGeral = (tipoRelatorio: 'GERAL' | 'EMPRESA' | 'PEDIDO' | 'ETIQUETAS' | 'CORTE') => {
     if (selectedIds.length === 0) {
       alert(`Por favor, selecione ao menos um item da tabela para gerar o relatório de ${tipoRelatorio}.`);
       return;
     }
 
-    if (tipoRelatorio === 'ETIQUETAS') {
-      document.body.style.width = '80mm';
-    } else {
-      document.body.style.width = '100%';
+    document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta', 'print-corte', 'print-geral');
+
+    // O modelo de CORTE é gerado a partir das linhas selecionadas na própria consulta
+    if (tipoRelatorio === 'CORTE') {
+      setActiveModel('corte');
+      setPrintMode('corte');
+      document.body.classList.add('print-corte');
+      setTimeout(() => window.print(), 250);
+      return;
     }
 
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        document.body.style.width = '100%';
-      }, 1000);
-    }, 150);
+    // Demais botões reaproveitam os modelos da aba de Propostas
+    const mapa: Record<string, PrintModelType> = {
+      GERAL: 'A4-inteiro',        // modelo inteiro A4 (Geral)
+      EMPRESA: 'proposta-resumida', // antigo "4 colunas" -> Empresa
+      PEDIDO: 'A4-2vias',
+      ETIQUETAS: 'etiqueta-80'
+    };
+
+    setActiveTab('propostas');
+    setTimeout(() => gerarEImprimir(mapa[tipoRelatorio]), 200);
   };
 
   // Sync client name if quote updates
@@ -351,9 +369,13 @@ const handleOrderChange = (key: string) => {
   // Alterna entre os modelos e ativa a caixa de impressão do navegador com setTimeout
   const gerarEImprimir = (tipoProposta: PrintModelType | 'pedido' | 'etiqueta' | 'proposta') => {
     // Remove classes anteriores
-    document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta');
+    document.body.classList.remove('print-pedido', 'print-etiqueta', 'print-proposta', 'print-corte');
 
-    if (tipoProposta === 'pedido' || tipoProposta === 'A4-2vias') {
+    if (tipoProposta === 'corte') {
+      setPrintMode('corte');
+      setActiveModel('corte');
+      document.body.classList.add('print-corte');
+    } else if (tipoProposta === 'pedido' || tipoProposta === 'A4-2vias') {
       setPrintMode('pedido');
       setActiveModel('A4-2vias');
       document.body.classList.add('print-pedido');
@@ -444,6 +466,20 @@ const handleOrderChange = (key: string) => {
 
   return (
     <div id="screen-relatorios" className="space-y-6">
+
+      {/* Regras de impressão do modelo de CORTE */}
+      <style>{`
+        @media print {
+          body.print-corte .btn-no-print,
+          body.print-corte .filtros-bar,
+          body.print-corte .tabela-container,
+          body.print-corte .screen-header,
+          body.print-corte .documento-modelo:not(.secao-corte) { display: none !important; }
+          body.print-corte #doc-corte { display: block !important; box-shadow: none !important; padding: 0 !important; }
+          body.print-corte #doc-corte table { page-break-inside: auto; }
+          body.print-corte #doc-corte tr { page-break-inside: avoid; }
+        }
+      `}</style>
       
       {/* TAB NAVIGATION: PROPOSTAS vs CONSULTA */}
       <div className="btn-no-print flex items-center justify-between border-b border-slate-800 pb-3 gap-3 flex-wrap">
@@ -661,6 +697,61 @@ const handleOrderChange = (key: string) => {
             <span>{selectedIds.length} item(ns) selecionado(s) para impressão</span>
           </div>
 
+          {/* ===================================================
+               MODELO DE CORTE (Observação, Produto/Material, Medidas,
+               Descrição, Qtd e quadradinho para marcar como CORTADO)
+               =================================================== */}
+          <div
+            id="doc-corte"
+            className={`documento-modelo secao-corte bg-white text-slate-900 p-6 rounded-xl shadow-2xl font-sans w-full max-w-4xl mx-auto ${
+              activeModel === 'corte' ? 'block' : 'hidden'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
+              <div>
+                <h2 className="m-0 text-lg font-black uppercase tracking-wide">Ordem de Corte</h2>
+                <p className="m-0 text-[11px] font-semibold text-slate-600 uppercase">
+                  Cliente: {clienteBusca || selectedClientName || currentQuote.clientName || 'TODOS'}
+                </p>
+              </div>
+              <div className="text-right text-[11px] font-semibold text-slate-600">
+                <p className="m-0">Data: {new Date().toLocaleDateString('pt-BR')}</p>
+                <p className="m-0">Itens: {itensCorte.length}</p>
+              </div>
+            </div>
+
+            <table className="w-full border-collapse text-[11px]">
+              <thead>
+                <tr className="bg-slate-200">
+                  <th className="border border-black p-1.5 text-left">Observação</th>
+                  <th className="border border-black p-1.5 text-left">Produto / Material</th>
+                  <th className="border border-black p-1.5 text-left">Medidas</th>
+                  <th className="border border-black p-1.5 text-left">Descrição</th>
+                  <th className="border border-black p-1.5 text-center w-12">Qtd</th>
+                  <th className="border border-black p-1.5 text-center w-16">Cortado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itensCorte.map((item) => (
+                  <tr key={item.idVer}>
+                    <td className="border border-black p-1.5 font-bold uppercase">{item.observacao || item.cotacao || '-'}</td>
+                    <td className="border border-black p-1.5 uppercase">{item.produto}</td>
+                    <td className="border border-black p-1.5">{item.medida}</td>
+                    <td className="border border-black p-1.5 uppercase">{item.descricao}</td>
+                    <td className="border border-black p-1.5 text-center font-bold">{item.qtd}</td>
+                    <td className="border border-black p-1.5 text-center">
+                      <span className="inline-block w-4 h-4 border-2 border-black align-middle" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-center">
+              www.usicortemetais.com.br
+            </p>
+          </div>
+
         </div>
       )}
 
@@ -875,7 +966,7 @@ const handleOrderChange = (key: string) => {
                   activeModel === 'A4-inteiro' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                A4 Inteiro
+                Geral (A4 Inteiro)
               </button>
               <button
                 onClick={() => setActiveModel('proposta-resumida')}
@@ -884,7 +975,7 @@ const handleOrderChange = (key: string) => {
                 }`}
               >
                 <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>Proposta 4 Colunas</span>
+                <span>Empresa</span>
               </button>
               <button
                 onClick={() => setActiveModel('A4-2vias')}
@@ -901,6 +992,14 @@ const handleOrderChange = (key: string) => {
                 }`}
               >
                 Etiqueta 80x80
+              </button>
+              <button
+                onClick={() => setActiveModel('corte')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  activeModel === 'corte' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Corte
               </button>
             </div>
           </div>
