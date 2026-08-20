@@ -94,7 +94,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   const [selectedOrderKey, setSelectedOrderKey] = useState<string>('CURRENT');
   
   // Drawing photo for item/label
-  const [drawingPhoto, setDrawingPhoto] = useState<string>(SAMPLE_DRAWING_BASE64);
+  // ✅ UMA imagem POR ITEM (chave = índice do item), em vez de uma única imagem global
+  const [drawingPhotos, setDrawingPhotos] = useState<Record<number, string>>({});
   
   // Selected item index for individual label printing
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(0);
@@ -198,7 +199,8 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
           const reader = new FileReader();
           reader.onload = (e) => {
             const base64 = e.target?.result as string;
-            setDrawingPhoto(base64);
+            // aplica a imagem colada APENAS ao item selecionado
+            setDrawingPhotos(prev => ({ ...prev, [selectedItemIndex]: base64 }));
             setPasteSuccess(true);
             setTimeout(() => setPasteSuccess(false), 4000);
           };
@@ -219,20 +221,17 @@ const handleOrderChange = (key: string) => {
 
   if (key === 'PED-00124') {
     setSelectedClientName('USICORTE USINAGEM LTDA');
-    setDrawingPhoto(SAMPLE_DRAWING_BASE64);
+    setDrawingPhotos({});
   } else if (key === 'PED-00125') {
     setSelectedClientName('INDÚSTRIA METALÚRGICA SP');
-    setDrawingPhoto('');
+    // pedido sem foto: marca todos os itens como vazio
+    setDrawingPhotos(Object.fromEntries(currentQuote.items.map((_, i) => [i, ''])));
   } else {
     setSelectedClientName(currentQuote.clientName || 'CLIENTE BALCÃO');
-
-    // ✅ Alteração: percorre os itens e usa a imagem de cada um
-    currentQuote.items.forEach((item, index) => {
-      setDrawingPhoto(item.drawingImage || SAMPLE_DRAWING_BASE64);
-    });
+    // ✅ cada item volta a usar a SUA própria imagem
+    setDrawingPhotos({});
   }
 };
-
 
   // Handle drawing photo upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,7 +240,7 @@ const handleOrderChange = (key: string) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
-        setDrawingPhotos(base64);
+        setDrawingPhotos(prev => ({ ...prev, [selectedItemIndex]: base64 }));
         setPasteSuccess(true);
         setTimeout(() => setPasteSuccess(false), 4000);
       };
@@ -294,11 +293,21 @@ const handleOrderChange = (key: string) => {
     description: 'BUCHA USINADA'
   };
 
+  // ✅ imagem de UM item específico: override manual -> imagem do próprio item -> exemplo
+  const getDrawing = (idx: number): string => {
+    const override = drawingPhotos[idx];
+    if (override !== undefined) return override;
+    const it = currentQuote.items[idx] as (QuoteItem & { drawingImage?: string; fotoDesenho?: string }) | undefined;
+    return it?.drawingImage || it?.fotoDesenho || SAMPLE_DRAWING_BASE64;
+  };
+
+  const currentDrawing = getDrawing(selectedItemIndex);
+
   const handleExportJSON = () => {
     const dataToExport = {
       ...currentQuote,
       clientName: selectedClientName,
-      drawingPhoto: drawingPhoto || null,
+      drawingPhoto: currentDrawing || null,
       exportedAt: new Date().toISOString()
     };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
@@ -665,11 +674,11 @@ const handleOrderChange = (key: string) => {
               <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
               📸 Desenho Técnico (Copie o print com Win+Shift+S ou PrintScreen e cole abaixo):
             </label>
-            {drawingPhoto && (
+            {currentDrawing && (
               <button
                 type="button"
                 onClick={() => {
-                  setDrawingPhoto('');
+                  setDrawingPhotos(prev => ({ ...prev, [selectedItemIndex]: '' }));
                   setPasteSuccess(false);
                 }}
                 className="text-[11px] text-red-400 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
@@ -712,10 +721,10 @@ const handleOrderChange = (key: string) => {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {drawingPhoto && (
+              {currentDrawing && (
                 <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900 overflow-hidden flex items-center justify-center shrink-0">
                   <img 
-                    src={drawingPhoto} 
+                    src={currentDrawing} 
                     alt="Miniatura" 
                     className="desenho-tecnico-img w-full h-full object-contain"
                   />
@@ -737,7 +746,7 @@ const handleOrderChange = (key: string) => {
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Upload className="w-3.5 h-3.5 text-blue-400" />
-                <span>{drawingPhoto ? 'Alterar Arquivo' : 'Carregar Arquivo'}</span>
+                <span>{currentDrawing ? 'Alterar Arquivo' : 'Carregar Arquivo'}</span>
               </button>
             </div>
           </div>
@@ -1142,10 +1151,18 @@ const handleOrderChange = (key: string) => {
         {/* ===================================================
              PROPOSTA 3: ETIQUETA CUPOM 80x80mm (IDENTIFICAÇÃO DA PEÇA)
              =================================================== */}
+        {/* ✅ Uma etiqueta POR ITEM: texto e imagem sempre do mesmo item */}
+        {currentQuote.items.map((rawItem, itemIdx) => {
+          const item: Partial<QuoteItem> = rawItem || {};
+          const img = getDrawing(itemIdx);
+          return (
         <div 
-          id="doc-etiqueta-80" 
-          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 w-full max-w-[380px] border-2 border-black rounded-lg p-4 bg-white text-black font-sans relative mx-auto shadow-2xl print:m-0 ${
-            activeModel === 'etiqueta-80' ? 'block' : 'hidden'
+          key={itemIdx}
+          id={`doc-etiqueta-80-${itemIdx}`}
+          className={`documento-modelo secao-etiqueta modelo-etiqueta-80 w-full max-w-[380px] border-2 border-black rounded-lg p-4 bg-white text-black font-sans relative mx-auto shadow-2xl print:m-0 print:break-after-page ${
+            activeModel === 'etiqueta-80'
+              ? (selectedItemIndex === itemIdx ? 'block' : 'hidden print:block')
+              : 'hidden'
           }`}
         >
           {/* Cabeçalho Original */}
@@ -1168,30 +1185,30 @@ const handleOrderChange = (key: string) => {
               <div>
                 <span className="font-bold text-gray-600 block text-[10px]">MATERIAL:</span>
                 <span id="etiq-material" className="font-extrabold uppercase text-sm text-blue-950 block truncate">
-                  {activeItem.constanteNome || activeItem.material || 'BRONZE TM-23'}
+                  {item.constanteNome || item.material || 'BRONZE TM-23'}
                 </span>
               </div>
 
               <div>
                 <span className="font-bold text-gray-600 block text-[10px]">MEDIDA:</span>
                 <span id="etiq-medida" className="font-bold block text-[11.5px] font-mono">
-                  {formatarMedidasLimpa(activeItem) || 'Ø 50 x 200 mm'}
+                  {formatarMedidasLimpa(item) || 'Ø 50 x 200 mm'}
                 </span>
               </div>
 
               <div>
                 <span className="font-bold text-gray-600 block text-[10px]">QTD:</span>
                 <span id="etiq-qtd" className="font-black text-sm">
-                  {activeItem.qtd || activeItem.quantity || 1} PC
+                  {item.qtd || item.quantity || 1} PC
                 </span>
               </div>
 
               {/* Campo de Observação */}
-              {(activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations) && (
+              {(item.observacao || item.notes || item.info || item.descricao || currentQuote.observations) && (
                 <div className="pt-1">
                   <span className="font-bold text-gray-600 block text-[10px]">OBSERVAÇÃO:</span>
                   <span id="etiq-obs" className="font-semibold text-[11px] block text-gray-800 italic leading-snug">
-                    {activeItem.observacao || activeItem.notes || activeItem.info || activeItem.descricao || currentQuote.observations}
+                    {item.observacao || item.notes || item.info || item.descricao || currentQuote.observations}
                   </span>
                 </div>
               )}
@@ -1202,10 +1219,10 @@ const handleOrderChange = (key: string) => {
               id="box-foto-etiqueta"
               className="etiqueta-foto-box col-span-5 border-2 border-dashed border-gray-400 p-1 rounded flex items-center justify-center min-h-[110px] bg-slate-50 overflow-hidden"
             >
-              {drawingPhoto ? (
+              {img ? (
                 <img 
                   id="img-desenho-etiqueta"
-                  src={drawingPhoto} 
+                  src={img} 
                   alt="Desenho Peça" 
                   className="desenho-tecnico-img max-h-[100px] w-auto object-contain print:contrast-[250%] print:brightness-90"
                   style={{ filter: 'contrast(200%) brightness(85%)' }}
@@ -1243,6 +1260,8 @@ const handleOrderChange = (key: string) => {
             </span>
           </div>
         </div>
+          );
+        })}
 
         {/* ===================================================
              PROPOSTA 4: RELATÓRIO / PROPOSTA COMERCIAL (4 COLUNAS RESPONSIVA)
@@ -1267,11 +1286,13 @@ const handleOrderChange = (key: string) => {
               totalDiscount: currentQuote.discount,
               shippingCost: currentQuote.shipping,
               grandTotal: currentQuote.grandTotal,
-              items: currentQuote.items.map(it => ({
+              items: currentQuote.items.map((it, idx) => ({
                 material: it.constanteNome || it.constantName || it.material || 'MATERIAL',
                 dimensions: formatarMedidasLimpa(it) || 'Ø 50 x 200 mm',
                 description: it.descricao || it.description || 'Corte / Usinagem Industrial',
-                info: it.observacao || it.notes || it.info || '-'
+                info: it.observacao || it.notes || it.info || '-',
+                // ✅ imagem do próprio item
+                drawingImage: getDrawing(idx)
               }))
             }}
           />
