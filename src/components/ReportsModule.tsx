@@ -104,8 +104,10 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
   const [pasteSuccess, setPasteSuccess] = useState<boolean>(false);
 
   // States for Consulta Module
-  const [tipoFiltro, setTipoFiltro] = useState<'empresa' | 'cotacao' | 'contato' | 'produto' | 'codigo'>('empresa');
+  const [tipoFiltro, setTipoFiltro] = useState<'cliente' | 'cotacao' | 'contato' | 'produto' | 'data'>('cliente');
   const [inputBusca, setInputBusca] = useState<string>('');
+  // Campo dedicado: NOME DO CLIENTE (filtra sempre, combinado com a busca acima)
+  const [clienteBusca, setClienteBusca] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,20 +133,51 @@ export default function ReportsModule({ currentQuote, clients = [], onNavigateTo
     return [...currentItems, ...DADOS_CONSULTA_EXEMPLO];
   }, [currentQuote, selectedClientName]);
 
-  // Filter consulta data based on radio category and search term
+  // Normaliza texto (minúsculo, sem acentos) para comparações
+  const normalizar = (v: unknown) =>
+    String(v ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  // Filtra a tabela: NOME DO CLIENTE (sempre) + categoria selecionada
   const filteredConsultaItems = useMemo(() => {
-    const term = inputBusca.toLowerCase().trim();
-    if (!term) return allConsultaItems;
+    const term = normalizar(inputBusca);
+    const cliente = normalizar(clienteBusca);
 
     return allConsultaItems.filter(item => {
-      if (tipoFiltro === 'empresa') return item.empresa.toLowerCase().includes(term);
-      if (tipoFiltro === 'cotacao') return item.cotacao.toLowerCase().includes(term);
-      if (tipoFiltro === 'contato') return item.contato.toLowerCase().includes(term);
-      if (tipoFiltro === 'produto') return item.produto.toLowerCase().includes(term) || item.descricao.toLowerCase().includes(term);
-      if (tipoFiltro === 'codigo') return item.idVer.toString().includes(term);
-      return true;
+      // 1) Filtro fixo por nome do cliente
+      if (cliente && !normalizar(item.empresa).includes(cliente)) return false;
+
+      // 2) Filtro por categoria selecionada
+      if (!term) return true;
+
+      switch (tipoFiltro) {
+        case 'cliente':
+          return normalizar(item.empresa).includes(term);
+        case 'cotacao':
+          return normalizar(item.cotacao).includes(term);
+        case 'contato':
+          return normalizar(item.contato).includes(term);
+        case 'produto':
+          return normalizar(item.produto).includes(term) || normalizar(item.descricao).includes(term);
+        case 'data':
+          return normalizar(item.data).includes(term);
+        default:
+          return true;
+      }
     });
-  }, [allConsultaItems, inputBusca, tipoFiltro]);
+  }, [allConsultaItems, inputBusca, clienteBusca, tipoFiltro]);
+
+  // Mantém selecionados apenas os itens que continuam visíveis após o filtro
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const visiveis = new Set(filteredConsultaItems.map(i => i.idVer));
+      const next = prev.filter(id => visiveis.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [filteredConsultaItems]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -485,10 +518,10 @@ const handleOrderChange = (key: string) => {
                 <input 
                   type="radio" 
                   name="tipoFiltro" 
-                  value="empresa" 
-                  checked={tipoFiltro === 'empresa'} 
-                  onChange={() => setTipoFiltro('empresa')} 
-                /> EMPRESA
+                  value="cliente" 
+                  checked={tipoFiltro === 'cliente'} 
+                  onChange={() => setTipoFiltro('cliente')} 
+                /> CLIENTE
               </label>
               <label>
                 <input 
@@ -521,11 +554,20 @@ const handleOrderChange = (key: string) => {
                 <input 
                   type="radio" 
                   name="tipoFiltro" 
-                  value="codigo" 
-                  checked={tipoFiltro === 'codigo'} 
-                  onChange={() => setTipoFiltro('codigo')} 
-                /> CÓDIGO / ID
+                  value="data" 
+                  checked={tipoFiltro === 'data'} 
+                  onChange={() => setTipoFiltro('data')} 
+                /> DATA
               </label>
+
+              <input 
+                type="text" 
+                id="inputCliente" 
+                className="input-busca-avancada" 
+                placeholder="Nome do Cliente..." 
+                value={clienteBusca} 
+                onChange={(e) => setClienteBusca(e.target.value)} 
+              />
 
               <input 
                 type="text" 
@@ -552,7 +594,7 @@ const handleOrderChange = (key: string) => {
                       onChange={(e) => handleSelectAll(e.target.checked)} 
                     />
                   </th>
-                  <th>IdVer</th>
+                  <th>Cotação</th>
                   <th>Data</th>
                   <th>Cliente / Empresa</th>
                   <th>Contato</th>
@@ -563,13 +605,12 @@ const handleOrderChange = (key: string) => {
                   <th>Qtd</th>
                   <th>Unitário</th>
                   <th>Valor Geral</th>
-                  <th>Cotação</th>
                 </tr>
               </thead>
               <tbody id="tbodyConsulta">
                 {filteredConsultaItems.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="text-center py-6 text-slate-500 font-medium">
+                    <td colSpan={12} className="text-center py-6 text-slate-500 font-medium">
                       Nenhum registro encontrado para os filtros selecionados.
                     </td>
                   </tr>
@@ -596,7 +637,7 @@ const handleOrderChange = (key: string) => {
                             onChange={() => handleToggleSelect(item.idVer)} 
                           />
                         </td>
-                        <td><strong>{item.idVer}</strong></td>
+                        <td><strong>{item.cotacao || '-'}</strong></td>
                         <td>{item.data}</td>
                         <td><strong>{item.empresa}</strong></td>
                         <td>{item.contato || '-'}</td>
@@ -607,7 +648,6 @@ const handleOrderChange = (key: string) => {
                         <td>{item.qtd}</td>
                         <td>R$ {item.unitario.toFixed(2)}</td>
                         <td><strong>R$ {item.valorGeral.toFixed(2)}</strong></td>
-                        <td>{item.cotacao || '-'}</td>
                       </tr>
                     );
                   })
