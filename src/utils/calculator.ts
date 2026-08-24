@@ -21,6 +21,78 @@ export function formatWeightKg(value: number, decimals: number = 3): string {
   return `${formatNumberBR(num, decimals)} Kg`;
 }
 
+/**
+ * Formata com segurança uma data recebida (seja ISO, YYYY-MM-DD, DD/MM/YYYY, timestamp ou nulo/inválido).
+ * Se a data for inválida, vazia ou nula, usa a data atual (new Date()) como fallback seguro, impedindo o texto '(Invalid Date)'.
+ */
+export function formatSafeDate(dateInput?: string | number | Date | null): string {
+  if (!dateInput) {
+    return new Date().toLocaleDateString('pt-BR');
+  }
+
+  if (dateInput instanceof Date) {
+    return isNaN(dateInput.getTime())
+      ? new Date().toLocaleDateString('pt-BR')
+      : dateInput.toLocaleDateString('pt-BR');
+  }
+
+  const str = String(dateInput).trim();
+  if (!str || str.toLowerCase() === 'invalid date' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+    return new Date().toLocaleDateString('pt-BR');
+  }
+
+  // Se já está no formato DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // Se estiver no formato YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  const parsed = new Date(str);
+  if (isNaN(parsed.getTime())) {
+    return new Date().toLocaleDateString('pt-BR');
+  }
+
+  return parsed.toLocaleDateString('pt-BR');
+}
+
+/**
+ * Retorna uma data válida no formato ISO (YYYY-MM-DD) para inputs e registros no banco.
+ * Se a data for nula ou inválida, usa a data atual (new Date()) como fallback.
+ */
+export function getSafeISODate(dateInput?: string | number | Date | null): string {
+  if (!dateInput) {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  const str = String(dateInput).trim();
+  if (!str || str.toLowerCase() === 'invalid date' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  // Se já está no formato YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+
+  // Se está no formato DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    const [d, m, y] = str.split('/');
+    return `${y}-${m}-${d}`;
+  }
+
+  const parsed = new Date(str);
+  if (isNaN(parsed.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  return parsed.toISOString().split('T')[0];
+}
+
 export function parseNumberBR(input: string | number): number {
   if (typeof input === 'number') return isNaN(input) ? 0 : input;
   if (!input) return 0;
@@ -132,11 +204,11 @@ export function normalizeConstant(constant: number | string): number {
   return k;
 }
 
-// 3. Subtotal = Number((Valor_Unitario * Qtd).toFixed(2))
+// 3. Subtotal = Math.ceil(Valor_Unitario * Qtd) (Valores inteiros arredondados para cima)
 export function calculateItemSubtotal(unitPrice: number, quantity: number): number {
   const price = typeof unitPrice === 'number' && !isNaN(unitPrice) ? unitPrice : 0;
   const qty = typeof quantity === 'number' && !isNaN(quantity) ? quantity : 0;
-  return Number((price * qty).toFixed(2));
+  return Math.ceil(price * qty);
 }
 
 export type GeometryType = 'REDONDO_QUADRADO' | 'CHAPA_RETANGULO' | 'TUBO_BUCHA' | 'chapa' | 'macico' | 'bucha';
@@ -379,8 +451,8 @@ export function calculateItemUnitPrice({
 
   const pKg = typeof pricePerKg === 'number' && !isNaN(pricePerKg) ? pricePerKg : 0;
 
-  // Valor_Unitario = Number((Peso_Kg * Preco_Por_Kg).toFixed(2))
-  const unitPrice = Number((unitWeightKg * pKg).toFixed(2));
+  // Valor_Unitario = Math.ceil(Peso_Kg * Preco_Por_Kg) (Inteiro arredondado para cima)
+  const unitPrice = Math.ceil(unitWeightKg * pKg);
   return Math.max(0, unitPrice);
 }
 
@@ -934,7 +1006,7 @@ export function calculateTheoreticalWeightAndPrice({
     quantity
   });
 
-  const suggestedUnitPrice = Number((unitWeightKg * baseKgPrice).toFixed(2));
+  const suggestedUnitPrice = Math.ceil(unitWeightKg * baseKgPrice);
 
   return {
     estimatedWeightKg: unitWeightKg,

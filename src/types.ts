@@ -73,10 +73,14 @@ export interface Quote {
   status: 'Rascunho' | 'Enviado' | 'Aprovado' | 'Faturado' | 'Cancelado';
   items: QuoteItem[];
   discount: number; // Desconto em R$
+  discountAmount?: number;
   discountPercent?: number; // Desconto em %
   shipping: number; // Frete em R$
+  shippingAmount?: number;
   subtotalTotal: number; // Soma dos subtotais
+  subtotal?: number;
   grandTotal: number; // Subtotal - Desconto + Frete
+  totalAmount?: number;
   totalWeightKg?: number; // Peso Total do Pedido (soma de todos os itens em Kg)
   observations?: string;
   drawingImage?: string;

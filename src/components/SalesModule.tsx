@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Client, Quote, QuoteItem } from '../types';
 import { 
+  saveCotacaoDb, 
+  fetchCotacoesDb, 
+  mapSupabaseStatusToQuote, 
+  db,
+  SupabaseCotacao
+} from '../lib/db';
+import { 
   formatCurrency, 
   formatNumberBR, 
   formatWeightKg,
+  formatSafeDate,
+  getSafeISODate,
   formatarMedidasLimpa,
   renderizarTabelaRelatorio,
   parseNumberBR, 
@@ -129,8 +138,8 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
   // Item form state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemGeometryType, setItemGeometryType] = useState<GeometryType>('chapa');
-  const [itemConstantSelect, setItemConstantSelect] = useState<string>('chapa');
-  const [itemConstantName, setItemConstantName] = useState<string>('CHAPA');
+  const [itemConstantSelect, setItemConstantSelect] = useState<string>('laser_a36');
+  const [itemConstantName, setItemConstantName] = useState<string>('LASER A36');
   const [itemConstant, setItemConstant] = useState<string>('0.00785');
   const [itemPricePerKg, setItemPricePerKg] = useState<string>('22,00');
   const [itemDescription, setItemDescription] = useState<string>('');
@@ -196,106 +205,132 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     };
   }, []);
 
-  // Load saved quotes on mount
+  // Load saved quotes on mount (LocalStorage + Supabase)
   useEffect(() => {
-    const saved = localStorage.getItem('s_orcamentos');
-    if (saved) {
-      try {
-        setSavedQuotes(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error loading saved quotes');
-      }
-    } else {
-      // Create an initial sample quote for UsiCorte demo with precise weights and prices per kg
-      const sampleQuote: Quote = {
-        id: 'quote-sample-1',
-        quoteNumber: 'COT-2026-1042',
-        clientName: 'Brasil Tecnologias Ltda',
-        clientDocument: '12.345.678/0001-90',
-        contactPerson: 'Oziel Medrade',
-        clientPhone: '(11) 98888-7777',
-        clientEmail: 'medradeoziel@gmail.com',
-        clientCity: 'São Paulo',
-        clientState: 'SP',
-        date: new Date().toISOString().split('T')[0],
-        validityDays: 15,
-        paymentTerms: '30 Dias no Boleto',
-        status: 'Aprovado',
-        items: [
-          {
-            id: 'item-1',
-            date: new Date().toISOString().split('T')[0],
-            companyName: 'Brasil Tecnologias Ltda',
-            description: 'Chapa de Aço SAE 1020 Cortada a Plasma CNC',
-            geometryType: 'CHAPA_RETANGULO',
-            constant: '0.00785',
-            pricePerKg: 22.00,
-            measure: '1/2" (12.7mm)',
-            diameter: '-',
-            widthLength: '1200 x 2400 mm',
-            widthMm: 1200,
-            lengthMm: 2400,
-            unitWeightKg: 287.117,
-            totalWeightKg: 574.234,
-            unitPrice: 6316.57,
-            quantity: 2,
-            subtotal: 12633.14,
-            notes: 'Bordas escariadas e desbastadas'
-          },
-          {
-            id: 'item-2',
-            date: new Date().toISOString().split('T')[0],
-            companyName: 'Brasil Tecnologias Ltda',
-            description: 'Chapa Aço SAE 1045 Bloco Retangular',
-            geometryType: 'CHAPA_RETANGULO',
-            constant: '0.00785',
-            pricePerKg: 17.80,
-            measure: '1" (25.4mm)',
-            diameter: '-',
-            widthLength: '300 x 600 mm',
-            widthMm: 300,
-            lengthMm: 600,
-            unitWeightKg: 35.889,
-            totalWeightKg: 143.556,
-            unitPrice: 638.82,
-            quantity: 4,
-            subtotal: 2555.28,
-            notes: 'Tolerância e esquadro usinados'
-          },
-          {
-            id: 'item-3',
-            date: new Date().toISOString().split('T')[0],
-            companyName: 'Brasil Tecnologias Ltda',
-            description: 'Chapa Aço Inox AISI 304 Escovada',
-            geometryType: 'CHAPA_RETANGULO',
-            constant: '0.00800',
-            pricePerKg: 45.00,
-            measure: '10.0 mm',
-            diameter: '-',
-            widthLength: '500 x 1000 mm',
-            widthMm: 500,
-            lengthMm: 1000,
-            unitWeightKg: 40.000,
-            totalWeightKg: 80.000,
-            unitPrice: 1800.00,
-            quantity: 2,
-            subtotal: 3600.00
+    async function loadQuotes() {
+      let localQuotes: Quote[] = [];
+      const saved = localStorage.getItem('s_orcamentos');
+      if (saved) {
+        try {
+          localQuotes = JSON.parse(saved);
+          if (Array.isArray(localQuotes)) {
+            // Deduplica e sanitiza o localQuotes inicial
+            const localMap = new Map<string, Quote>();
+            localQuotes.forEach(lq => {
+              const key = String(lq.quoteNumber || lq.id || '').trim().toLowerCase();
+              if (key && !localMap.has(key)) {
+                localMap.set(key, {
+                  ...lq,
+                  date: getSafeISODate(lq.date || lq.createdAt),
+                  createdAt: lq.createdAt && !isNaN(new Date(lq.createdAt).getTime()) ? lq.createdAt : new Date().toISOString(),
+                  updatedAt: lq.updatedAt && !isNaN(new Date(lq.updatedAt).getTime()) ? lq.updatedAt : new Date().toISOString()
+                });
+              }
+            });
+            localQuotes = Array.from(localMap.values());
+            setSavedQuotes(localQuotes);
           }
-        ],
-        discount: 100.00,
-        discountPercent: 0,
-        shipping: 150.00,
-        subtotalTotal: 18788.42,
-        grandTotal: 18838.42,
-        totalWeightKg: 797.790,
-        observations: 'Material de primeira linha certificado UsiCorte.',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+        } catch (e) {
+          console.error('Error loading saved quotes from localStorage:', e);
+        }
+      }
 
-      setSavedQuotes([sampleQuote]);
-      localStorage.setItem('s_orcamentos', JSON.stringify([sampleQuote]));
+      // Consulta cotações salvas no Supabase
+      try {
+        const dbQuotes = await fetchCotacoesDb();
+        if (dbQuotes && dbQuotes.length > 0) {
+          // Mapeia cotações vindas do Supabase com validação e fallback seguro de data
+          const mappedDbQuotes: Quote[] = dbQuotes.map(q => {
+            const safeDateIso = getSafeISODate(q.data || q.created_at);
+            const safeCreatedAt = q.created_at && !isNaN(new Date(q.created_at).getTime())
+              ? new Date(q.created_at).toISOString()
+              : (q.data && !isNaN(new Date(q.data).getTime()) ? new Date(q.data).toISOString() : new Date().toISOString());
+            const safeUpdatedAt = q.updated_at && !isNaN(new Date(q.updated_at).getTime())
+              ? new Date(q.updated_at).toISOString()
+              : safeCreatedAt;
+
+            return {
+              id: q.id || q.numero || `db-quote-${Date.now()}`,
+              quoteNumber: q.numero || q.id || 'COT-SEM-NUMERO',
+              clientName: q.cliente_nome || 'Cliente Balcão',
+              contactPerson: q.contato || '',
+              clientPhone: q.telefone || '',
+              clientEmail: q.email || '',
+              date: safeDateIso,
+              validityDays: 10,
+              paymentTerms: 'À Vista',
+              status: mapSupabaseStatusToQuote(q.status),
+              observations: q.observacoes || '',
+              discount: 0,
+              shipping: 0,
+              subtotalTotal: Number(q.valor_total) || 0,
+              grandTotal: Number(q.valor_total) || 0,
+              createdAt: safeCreatedAt,
+              updatedAt: safeUpdatedAt,
+              items: (q.cotacao_itens || []).map((it, idx) => ({
+                id: String(it.id || idx),
+                date: safeDateIso,
+                companyName: q.cliente_nome || 'Cliente Balcão',
+                description: it.descricao || it.produto || 'Item',
+                constant: '0.00785',
+                constantName: it.produto || 'Material',
+                measure: it.medida || '',
+                diameter: '',
+                widthLength: '',
+                unitPrice: Number(it.valor_unitario) || 0,
+                quantity: Number(it.quantidade) || 1,
+                subtotal: Number(it.valor_total) || ((Number(it.valor_unitario) || 0) * (Number(it.quantidade) || 1)),
+                notes: it.observacao || '',
+                drawingImage: it.desenho_url || undefined
+              }))
+            };
+          });
+
+          // Deduplicação: Prioridade total aos dados do Supabase sobre o localStorage
+          const quotesMap = new Map<string, Quote>();
+          const seenKeys = new Set<string>();
+
+          const extractKeys = (q: Quote) => {
+            const keys: string[] = [];
+            if (q.id) keys.push(String(q.id).trim().toLowerCase());
+            if (q.quoteNumber) keys.push(String(q.quoteNumber).trim().toLowerCase());
+            return keys;
+          };
+
+          // 1. Insere todas as cotações do Supabase no mapa
+          mappedDbQuotes.forEach(q => {
+            const primaryKey = String(q.quoteNumber || q.id).trim().toLowerCase();
+            quotesMap.set(primaryKey, q);
+            extractKeys(q).forEach(k => seenKeys.add(k));
+          });
+
+          // 2. Insere cotações do LocalStorage apenas se não existirem no Supabase (por ID ou número)
+          localQuotes.forEach(lq => {
+            const keys = extractKeys(lq);
+            const existsInSupabase = keys.some(k => seenKeys.has(k));
+            if (!existsInSupabase) {
+              const primaryKey = String(lq.quoteNumber || lq.id).trim().toLowerCase();
+              const sanitizedLq: Quote = {
+                ...lq,
+                date: getSafeISODate(lq.date || lq.createdAt),
+                createdAt: lq.createdAt && !isNaN(new Date(lq.createdAt).getTime()) ? lq.createdAt : new Date().toISOString(),
+                updatedAt: lq.updatedAt && !isNaN(new Date(lq.updatedAt).getTime()) ? lq.updatedAt : new Date().toISOString()
+              };
+              quotesMap.set(primaryKey, sanitizedLq);
+              keys.forEach(k => seenKeys.add(k));
+            }
+          });
+
+          const combined = Array.from(quotesMap.values());
+          setSavedQuotes(combined);
+          localStorage.setItem('s_orcamentos', JSON.stringify(combined));
+        }
+      } catch (err) {
+        console.warn('Banco Supabase em modo cotações offline:', err);
+      }
     }
+
+    loadQuotes();
   }, []);
 
   // When selectedMaterial is passed from Products screen, apply it immediately
@@ -360,14 +395,14 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     thicknessStr: itemThickness
   });
 
-  // Theoretical unit price calculated in cascade: Peso Unitário (Kg) * Preço/Kg (R$) com trava toFixed(2)
+  // Theoretical unit price calculated in cascade: Peso Unitário (Kg) * Preço/Kg (R$) arredondando para cima inteiro (Math.ceil)
   const calculatedUnitPrice = currentFormUnitWeightKg > 0 && currentFormPriceKg > 0
-    ? Number((currentFormUnitWeightKg * currentFormPriceKg).toFixed(2))
+    ? Math.ceil(currentFormUnitWeightKg * currentFormPriceKg)
     : 0;
 
-  // Live unit price for form calculations (prioritizes active input or cascading result, com trava toFixed(2))
+  // Live unit price for form calculations (prioritizes active input or cascading result, arredondando para cima inteiro)
   const rawFormUnitPrice = parseNumberBR(itemUnitPrice) || calculatedUnitPrice;
-  const currentFormUnitPrice = Number(rawFormUnitPrice.toFixed(2));
+  const currentFormUnitPrice = Math.ceil(rawFormUnitPrice);
   const currentFormSubtotal = calculateItemSubtotal(currentFormUnitPrice, currentFormQty > 0 ? currentFormQty : 1);
 
   // Helper to recompute and update the Unit Price (R$) field whenever dimensions, constant or price/kg changes
@@ -400,7 +435,8 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     });
 
     if (unitPrice > 0) {
-      setItemUnitPrice(unitPrice.toFixed(2).replace('.', ','));
+      const roundedPrice = Math.ceil(unitPrice);
+      setItemUnitPrice(roundedPrice.toFixed(2).replace('.', ','));
     }
   };
 
@@ -868,7 +904,7 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     }
 
     const rawUnitPriceNum = parseNumberBR(itemUnitPrice) || calculatedUnitPrice;
-    const unitPriceNum = Number(rawUnitPriceNum.toFixed(2));
+    const unitPriceNum = Math.ceil(rawUnitPriceNum);
     if (unitPriceNum <= 0) {
       setErrorMessage('O valor unitário deve ser maior que zero (R$). Verifique as medidas ou o Preço/Kg.');
       setTimeout(() => setErrorMessage(null), 3500);
@@ -1001,8 +1037,8 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
 
   const resetItemForm = () => {
     setEditingItemId(null);
-    setItemConstantSelect('chapa');
-    setItemConstantName('CHAPA');
+    setItemConstantSelect('laser_a36');
+    setItemConstantName('LASER A36');
     setItemDescription('');
     setItemConstant('0.00785');
     setItemPricePerKg('22,00');
@@ -1134,7 +1170,18 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     setSavedQuotes(updatedQuotes);
     localStorage.setItem('s_orcamentos', JSON.stringify(updatedQuotes));
 
-    setSuccessMessage(`Orçamento ${quoteNumber} salvo com sucesso no histórico!`);
+    // Persiste no Supabase
+    saveCotacaoDb(currentQuoteObject).then(res => {
+      if (res.error) {
+        console.warn('Cotação salva localmente; aviso no Supabase:', res.error);
+        setSuccessMessage(`Orçamento ${quoteNumber} salvo no histórico (local)!`);
+      } else {
+        setSuccessMessage(`Orçamento ${quoteNumber} salvo e sincronizado no Supabase! ⚡`);
+      }
+    }).catch(() => {
+      setSuccessMessage(`Orçamento ${quoteNumber} salvo com sucesso no histórico!`);
+    });
+
     setTimeout(() => setSuccessMessage(null), 3500);
   };
 
@@ -1173,7 +1220,7 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
     setClientEmail(quote.clientEmail || '');
     setClientCity(quote.clientCity || '');
     setClientState(quote.clientState || '');
-    setQuoteDate(quote.date);
+    setQuoteDate(getSafeISODate(quote.date || quote.createdAt));
     setValidityDays(quote.validityDays || 10);
     setPaymentTerms(quote.paymentTerms || 'À Vista');
     setQuoteStatus(quote.status || 'Rascunho');
@@ -1188,10 +1235,19 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
   };
 
   // Delete quote from history
-  const handleDeleteSavedQuote = (id: string) => {
+  const handleDeleteSavedQuote = async (id: string) => {
+    const quoteToDelete = savedQuotes.find(q => q.id === id || q.quoteNumber === id);
     const updated = savedQuotes.filter(q => q.id !== id && q.quoteNumber !== id);
     setSavedQuotes(updated);
     localStorage.setItem('s_orcamentos', JSON.stringify(updated));
+
+    if (quoteToDelete) {
+      try {
+        await db.from('cotacoes').delete().eq('numero', quoteToDelete.quoteNumber);
+      } catch (err) {
+        console.warn('Erro ao deletar cotação no Supabase:', err);
+      }
+    }
   };
 
   // Quick Description suggestions
@@ -2345,7 +2401,7 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
             <div className="field field-resultado lg:col-span-2 space-y-1">
               <label htmlFor="valorUnitario" className="block text-xs font-bold text-indigo-900 flex items-center justify-between">
                 <span>Valor Unitário (R$)</span>
-                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">Auto</span>
+                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">Inteiro ↑</span>
               </label>
               <input
                 type="text"
@@ -2360,7 +2416,7 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
             <div className="field field-resultado lg:col-span-2 space-y-1">
               <label htmlFor="valorTotal" className="block text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>Valor Total (R$)</span>
-                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1 rounded">Subtotal</span>
+                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1 rounded">Inteiro ↑</span>
               </label>
               <input
                 type="text"
@@ -2445,10 +2501,10 @@ const [quoteNumber, setQuoteNumber] = useState<string>(() => generateNextQuoteNu
               </div>
               <div className="text-[10px] font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
                 {itemGeometryType === 'bucha' || itemGeometryType === 'TUBO_BUCHA'
-                  ? 'Peso = ((ØExt² - ØInt²) × Comp × k / 1000).toFixed(3) | Unitário = (Peso × R$/Kg).toFixed(2)'
+                  ? 'Peso = ((ØExt² - ØInt²) × Comp × k / 1000).toFixed(3) | Unitário = Math.ceil(Peso × R$/Kg) | Total = Math.ceil(Unitário × Qtd)'
                   : itemGeometryType === 'macico' || itemGeometryType === 'REDONDO_QUADRADO'
-                  ? 'Peso = (d² × Comp × k / 1000).toFixed(3) | Unitário = (Peso × R$/Kg).toFixed(2)'
-                  : 'Peso = (Esp × Larg × Comp × k / 1000).toFixed(3) | Unitário = (Peso × R$/Kg).toFixed(2)'}
+                  ? 'Peso = (d² × Comp × k / 1000).toFixed(3) | Unitário = Math.ceil(Peso × R$/Kg) | Total = Math.ceil(Unitário × Qtd)'
+                  : 'Peso = (Esp × Larg × Comp × k / 1000).toFixed(3) | Unitário = Math.ceil(Peso × R$/Kg) | Total = Math.ceil(Unitário × Qtd)'}
               </div>
             </div>
 
