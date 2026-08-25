@@ -460,102 +460,102 @@ export function calculateItemUnitPrice({
  * Normaliza uma string de medidas: quebra em tokens por "x"/"×", remove
  * tokens repetidos (causa da duplicidade tipo 5" x 300 x 5" x 300) e rejunta.
  */
-export function normalizarMedida(texto: string): string {
-  const tokens = String(texto ?? '')
-    .split(/\s*[x×]\s*/i)
-    .map((t) => t.trim())
+export function normalizarMedida(valor: string | undefined | null): string {
+  if (!valor) return "";
+
+  const partes = valor
+    .replace(/×/g, "x")
+    .split("x")
+    .map((p) => p.trim())
     .filter(Boolean);
 
-  const unicos: string[] = [];
-  for (const t of tokens) {
-    const chave = t.toLowerCase().replace(/\s+/g, '');
-    if (!unicos.some((u) => u.toLowerCase().replace(/\s+/g, '') === chave)) {
-      unicos.push(t);
+  const vistas = new Set<string>();
+  const unicas: string[] = [];
+
+  for (const parte of partes) {
+    const chave = parte.toLowerCase().replace(/\s+/g, "");
+    if (!vistas.has(chave)) {
+      vistas.add(chave);
+      unicas.push(parte);
     }
   }
-  return unicos.join(' x ').replace(/\s+/g, ' ').trim();
+
+  return unicas.join(" x ");
 }
 
-/**
- * Formata as medidas de um item de forma limpa, técnica e sem duplicar termos ou unidades.
- */
-export function formatarMedidasLimpa(item: any): string {
-  if (!item) return '-';
+export function formatarMedidasLimpa(item: Record<string, any>): string {
+  const {
+    geometry,
+    diameter,
+    measure,
+    widthLength,
+    width,
+    length,
+    unit = "mm",
+  } = item || {};
 
-  // Se já veio com medidas formatadas previamente
-  if (item.medidasFormatadas && typeof item.medidasFormatadas === 'string' && item.medidasFormatadas.trim()) {
-    return normalizarMedida(item.medidasFormatadas);
+  let resultado = "";
+
+  // BUCHA / TUBO: medida composta por diâmetro externo x diâmetro interno x comprimento
+  if (geometry === "bucha" || geometry === "tubo") {
+    const externo = diameter || measure;
+    const interno = widthLength || width;
+    const comp = length;
+    resultado = normalizarMedida(
+      [externo, interno, comp].filter(Boolean).join(" x ")
+    );
+  }
+  // MACIÇO / REDONDO: medida composta por diâmetro x comprimento
+  else if (geometry === "macico" || geometry === "redondo") {
+    const diam = diameter || measure;
+    const comp = widthLength || length;
+    resultado = normalizarMedida([diam, comp].filter(Boolean).join(" x "));
+  }
+  // CHAPA / PLACA / RETANGULAR: medida composta por espessura x largura x comprimento
+  else if (
+    geometry === "chapa" ||
+    geometry === "placa" ||
+    geometry === "retangular"
+  ) {
+    const espessura = diameter || measure;
+    const dimensoes = widthLength || [width, length].filter(Boolean).join(" x ");
+    resultado = normalizarMedida(
+      [espessura, dimensoes].filter(Boolean).join(" x ")
+    );
+  }
+  // Fallback genérico
+  else {
+    resultado = normalizarMedida(
+      [diameter || measure, widthLength || [width, length].filter(Boolean).join(" x ")]
+        .filter(Boolean)
+        .join(" x ")
+    );
   }
 
-  // Se algum campo já traz a medida COMPLETA (contém "x" / "×"), usa direto.
-  // Evita a duplicidade quando measure/widthLength recebem a MESMA string composta.
-  const jaComposta = [item.medidas, item.medida, item.dimensions, item.measure, item.widthLength]
-    .map((v) => (v == null ? '' : String(v).trim()))
-    .find((v) => /[x×]/i.test(v));
-  if (jaComposta) return normalizarMedida(jaComposta);
+  if (!resultado) return "";
 
-  const geom = item.geometryType || item.profileType || 'chapa';
-  const diaStr = (item.diameter || item.diametro || '').toString().trim();
-  const thickStr = (item.thickness || item.espessura || item.measure || '').toString().trim();
-  const widthMm = Number(item.widthMm || item.largura || 0);
-  const lengthMm = Number(item.lengthMm || item.comprimento || 0);
-
-  // Extrair números e textos limpos
-  const dVal = diaStr || (item.diameterMm ? `${item.diameterMm}` : '');
-  const tVal = thickStr || (item.thicknessMm ? `${item.thicknessMm}` : '');
-  const lVal = lengthMm > 0 ? `${lengthMm}` : (item.widthLength || '').toString().trim();
-  const wVal = widthMm > 0 ? `${widthMm}` : '';
-
-  if (geom === 'bucha' || geom === 'TUBO_BUCHA') {
-    // BUCHA / TUBO: ØExt x ØInt x Comp
-    const dExt = dVal ? (dVal.startsWith('Ø') ? dVal : `Ø ${dVal}`) : '';
-    const dInt = tVal ? (tVal.startsWith('Ø') ? tVal.replace('Ø', '').trim() : tVal) : '';
-    const parts = [dExt, dInt, lVal].filter(Boolean);
-    if (parts.length > 0) {
-      let res = normalizarMedida(parts.join(' x '));
-      if (lVal && !res.toLowerCase().includes('mm') && !res.includes('"')) {
-        res += ' mm';
-      }
-      return res.replace(/\s+/g, ' ').trim();
-    }
-  } else if (geom === 'macico' || geom === 'REDONDO_QUADRADO') {
-    // MACIÇO: Ø ou d x Comp
-    const d = dVal || tVal;
-    if (d && lVal) {
-      const prefix = d.includes('Ø') || d.includes('"') || d.includes('#') ? d : `Ø ${d}`;
-      let res = normalizarMedida(`${prefix} x ${lVal}`);
-      if (!res.toLowerCase().includes('mm') && !res.includes('"')) {
-        res += ' mm';
-      }
-      return res.replace(/\s+/g, ' ').trim();
-    } else if (d) {
-      return d.includes('Ø') ? d : `Ø ${d}`;
-    }
-  } else {
-    // CHAPA: Espessura x Largura x Comprimento
-    const esp = tVal || dVal;
-    const parts = [esp, wVal, lVal].filter(Boolean);
-    if (parts.length > 0) {
-      let res = normalizarMedida(parts.join(' x '));
-      if (!res.toLowerCase().includes('mm') && !res.includes('"')) {
-        res += ' mm';
-      }
-      return res.replace(/\s+/g, ' ').trim();
-    }
+  // Adiciona o prefixo Ø quando o resultado começa com diâmetro (geometria redonda)
+  if (
+    (geometry === "macico" ||
+      geometry === "redondo" ||
+      geometry === "bucha" ||
+      geometry === "tubo") &&
+    !resultado.startsWith("Ø")
+  ) {
+    resultado = `Ø ${resultado}`;
   }
 
-  // Fallback para campos legados (deduplicado por token)
-  const fallback = [item.measure, item.diameter, item.widthLength].filter(Boolean);
-  if (fallback.length > 0) {
-    return normalizarMedida(fallback.join(' x '));
+  // Adiciona a unidade apenas se ainda não estiver presente
+  if (!resultado.toLowerCase().includes(unit.toLowerCase())) {
+    resultado = `${resultado} ${unit}`;
   }
 
-  return '-';
+  return resultado.trim();
 }
 
-/**
- * Função solicitada para renderizar o tbody do relatório / cotação
- */
+// Alias para compatibilidade, se necessário
+export const formatarMedida = formatarMedidasLimpa;
+
 export function renderizarTabelaRelatorio(listaItens: any[]): void {
   if (typeof document === 'undefined') return;
   const tbody = document.getElementById('tbody-relatorio');
