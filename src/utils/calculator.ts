@@ -457,6 +457,26 @@ export function calculateItemUnitPrice({
 }
 
 /**
+ * Normaliza uma string de medidas: quebra em tokens por "x"/"×", remove
+ * tokens repetidos (causa da duplicidade tipo 5" x 300 x 5" x 300) e rejunta.
+ */
+export function normalizarMedida(texto: string): string {
+  const tokens = String(texto ?? '')
+    .split(/\s*[x×]\s*/i)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const unicos: string[] = [];
+  for (const t of tokens) {
+    const chave = t.toLowerCase().replace(/\s+/g, '');
+    if (!unicos.some((u) => u.toLowerCase().replace(/\s+/g, '') === chave)) {
+      unicos.push(t);
+    }
+  }
+  return unicos.join(' x ').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Formata as medidas de um item de forma limpa, técnica e sem duplicar termos ou unidades.
  */
 export function formatarMedidasLimpa(item: any): string {
@@ -464,8 +484,15 @@ export function formatarMedidasLimpa(item: any): string {
 
   // Se já veio com medidas formatadas previamente
   if (item.medidasFormatadas && typeof item.medidasFormatadas === 'string' && item.medidasFormatadas.trim()) {
-    return item.medidasFormatadas.trim();
+    return normalizarMedida(item.medidasFormatadas);
   }
+
+  // Se algum campo já traz a medida COMPLETA (contém "x" / "×"), usa direto.
+  // Evita a duplicidade quando measure/widthLength recebem a MESMA string composta.
+  const jaComposta = [item.medidas, item.medida, item.dimensions, item.measure, item.widthLength]
+    .map((v) => (v == null ? '' : String(v).trim()))
+    .find((v) => /[x×]/i.test(v));
+  if (jaComposta) return normalizarMedida(jaComposta);
 
   const geom = item.geometryType || item.profileType || 'chapa';
   const diaStr = (item.diameter || item.diametro || '').toString().trim();
@@ -485,7 +512,7 @@ export function formatarMedidasLimpa(item: any): string {
     const dInt = tVal ? (tVal.startsWith('Ø') ? tVal.replace('Ø', '').trim() : tVal) : '';
     const parts = [dExt, dInt, lVal].filter(Boolean);
     if (parts.length > 0) {
-      let res = parts.join(' x ');
+      let res = normalizarMedida(parts.join(' x '));
       if (lVal && !res.toLowerCase().includes('mm') && !res.includes('"')) {
         res += ' mm';
       }
@@ -496,7 +523,7 @@ export function formatarMedidasLimpa(item: any): string {
     const d = dVal || tVal;
     if (d && lVal) {
       const prefix = d.includes('Ø') || d.includes('"') || d.includes('#') ? d : `Ø ${d}`;
-      let res = `${prefix} x ${lVal}`;
+      let res = normalizarMedida(`${prefix} x ${lVal}`);
       if (!res.toLowerCase().includes('mm') && !res.includes('"')) {
         res += ' mm';
       }
@@ -509,7 +536,7 @@ export function formatarMedidasLimpa(item: any): string {
     const esp = tVal || dVal;
     const parts = [esp, wVal, lVal].filter(Boolean);
     if (parts.length > 0) {
-      let res = parts.join(' x ');
+      let res = normalizarMedida(parts.join(' x '));
       if (!res.toLowerCase().includes('mm') && !res.includes('"')) {
         res += ' mm';
       }
@@ -517,11 +544,10 @@ export function formatarMedidasLimpa(item: any): string {
     }
   }
 
-  // Fallback para campos legados
+  // Fallback para campos legados (deduplicado por token)
   const fallback = [item.measure, item.diameter, item.widthLength].filter(Boolean);
   if (fallback.length > 0) {
-    const unique = fallback.filter((v, i, a) => a.indexOf(v) === i);
-    return unique.join(' x ').replace(/\s+/g, ' ').trim();
+    return normalizarMedida(fallback.join(' x '));
   }
 
   return '-';
